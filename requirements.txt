@@ -1,0 +1,12 @@
+#Runtime dependencies; update versions after regression and packaging checks.
+Pillow==12.3.0
+PySide6==6.11.2
+shiboken6==6.11.2
+pywebview==6.2.1
+pythonnet==3.1.0
+pyJianYingDraft==0.3.0
+pymediainfo==7.0.1
+imageio==2.38.0
+numpy==2.2.6
+uiautomation==2.0.29; sys_platform == 'win32'
+comtypes==1.4.17; sys_platform == 'win32'

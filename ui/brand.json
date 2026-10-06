@@ -1,0 +1,19 @@
+{
+  "appName": "冰翼Gal创作工坊",
+  "appNameEn": "BingyiGalCreativeWorkshop",
+  "tagline": "Galgame素材工作台",
+  "version": "1.0",
+  "versionLabel": "开发中",
+  "creator": "冰翼逆时光",
+  "signatureText": "冰翼逆时光",
+  "signatureSvg": "/ui/signature.svg",
+  "avatar": "/ui/avatar.png",
+  "favicon": "/ui/favicon.png",
+  "copyright": "© 2026 冰翼逆时光",
+  "license": "Apache-2.0",
+  "sourceUrl": "",
+  "betaDeadline": "",
+  "betaWarnDays": 7,
+  "betaMessage": "",
+  "dataDirName": "BingyiGalCreativeWorkshop"
+}

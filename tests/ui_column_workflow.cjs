@@ -1,0 +1,47 @@
+const assert=require('node:assert/strict'),fs=require('fs'),path=require('path'),e2e=require('./ui_e2e_helper.cjs');
+(async()=>{
+ const root=process.argv[3],inputs=JSON.parse(fs.readFileSync(path.join(root,'inputs.json'),'utf8')),checks=[];
+ const browser=await e2e.chromium.launch({executablePath:e2e.requireBrowser(),headless:true});
+ const p=await browser.newPage({viewport:{width:1366,height:900}}),errors=[];
+ p.on('pageerror',e=>errors.push(e.message));p.on('dialog',d=>d.accept());
+ try{
+  await p.goto(process.argv[2]);await p.locator('#boot-overlay').waitFor({state:'hidden'});
+  await p.locator('#nav-tools').click();await p.locator('#open-roughcut').click();
+  await p.locator('#column-open').click();await p.locator('#column-dialog').waitFor({state:'visible'});
+  assert.equal(await p.locator('#column-background').inputValue(),inputs.ids.background);
+  assert.equal(await p.locator('#column-overlay-list [data-layer-key="width"]').inputValue(),'12');
+  await p.screenshot({path:path.join(root,'configuration.png'),fullPage:true});
+  await p.locator('#column-name').fill('可复用栏目验证');await p.locator('#column-save').click();
+  await p.waitForFunction(()=>document.querySelector('#column-status').textContent.includes('已保存常用配置'));
+  await p.locator('#column-close').click();await p.locator('#column-open').click();
+  assert.equal(await p.locator('#column-name').inputValue(),'可复用栏目验证');checks.push('Save and reload reusable configuration');
+  await p.locator('#column-voice').selectOption(inputs.ids.voice);await p.locator('#column-episode-name').fill('宁宁独白_铺底验收');
+  await p.locator('#column-episode-directory').fill(inputs.episodeDirectory);
+  await p.locator('#column-build').click();await p.locator('#column-dialog').waitFor({state:'hidden'});
+  await p.waitForFunction(()=>document.querySelector('#cut-status').textContent.includes('已生成并保存'));
+  let project=await p.evaluate(()=>structuredClone(cutEditor.snapshot()));
+  assert.equal(project.overlays.length,1);assert.equal(project.audioClips.length,2);
+  assert.equal(await p.locator('.preview-full-layer').count(),1);
+  assert.equal(await p.locator('.editor-lane[data-lane="overlay"]').count(),1);
+  assert.equal(await p.locator('.editor-lane[data-lane="actor"]').count(),0);
+  assert(project.scenes[0].duration>=21.864);checks.push('Real 10-second video covers full original voice; badge and two sound tracks');
+  await p.locator('[data-overlay-index="0"]').click();await p.locator('[data-layer-key="width"]').fill('18');await p.locator('[data-layer-key="width"]').press('Tab');
+  await p.locator('#column-apply-overlays').click();await p.waitForFunction(()=>document.querySelector('#column-status').textContent.includes('已应用'));
+  await p.locator('#column-close').click();assert.equal(await p.evaluate(()=>cutEditor.snapshot().overlays[0].width),18);
+  await p.locator('#editor-undo').click();assert.equal(await p.evaluate(()=>cutEditor.snapshot().overlays[0].width),12);
+  await p.locator('#editor-redo').click();assert.equal(await p.evaluate(()=>cutEditor.snapshot().overlays[0].width),18);checks.push('Full image layer change, undo and redo');
+  await p.locator('#cut-save').click();await p.waitForFunction(()=>document.querySelector('#cut-status').textContent.includes('已保存'));
+  project=await p.evaluate(()=>structuredClone(cutEditor.snapshot()));
+  await p.evaluate(async id=>cutEditor.restore(await cutEditor.api('/api/roughcut/project?id='+id)),project.id);
+  assert.equal(await p.evaluate(()=>cutEditor.snapshot().overlays[0].width),18);assert.equal(await p.evaluate(()=>cutEditor.snapshot().workflow.episodeDirectory),inputs.episodeDirectory);
+  await p.locator('#cut-export').click();await p.waitForFunction(()=>document.querySelector('#cut-status').textContent.includes('已生成'));
+  await p.screenshot({path:path.join(root,'generated-1366.png')});
+  const report=await p.evaluate(()=>({project:structuredClone(cutEditor.snapshot()),status:document.querySelector('#cut-status').textContent,preflight:cutValidation.check(cutEditor.snapshot(),cutV2.audioItems())}));
+  assert(report.preflight.canExport);checks.push('Save/reopen retains layer and destinations; actual draft export');
+  await p.setViewportSize({width:1920,height:1080});await p.screenshot({path:path.join(root,'generated-1920.png')});
+  await p.locator('#column-open').click();await p.locator('#column-voice').selectOption(inputs.ids.voice);await p.locator('#column-episode-name').fill('第二次新建验收');await p.locator('#column-build').click();await p.locator('#column-dialog').waitFor({state:'hidden'});
+  assert.notEqual(await p.evaluate(()=>cutEditor.snapshot().id),project.id);
+  assert.deepEqual(errors,[]);checks.push('Repeated generation uses new project ID; no browser errors');
+  fs.writeFileSync(path.join(root,'ui-report.json'),JSON.stringify({passed:true,checks,errors,...report},null,2));console.log(checks.join('\n'));
+ } finally {await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});
