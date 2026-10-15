@@ -43,7 +43,7 @@ const fs=require('fs'),path=require('path'),assert=require('node:assert/strict')
   await page.locator('#cut-sprite-tab').click();await page.locator('#studio-import').click();assert(await page.locator('#import-dialog').isVisible());await page.locator('#close-import').click();
   await page.locator('#cut-audio-tab').click();assert(await page.locator('#editor-audio-assets').isVisible());
   await page.route('**/api/audio/pick',r=>r.fulfill({json:{paths:[path.join(path.dirname(fixture),'dialogue.wav')]}}));await page.locator('#studio-import').click();await page.waitForFunction(()=>document.querySelector('#cut-status').textContent==='音频导入完成');await page.locator('#editor-audio-list .audio-row').first().waitFor({state:'visible'});assert(await page.locator('#editor-audio-list .audio-row').count()>0);
-  await page.locator('#studio-text').click();await page.locator('#text-single').waitFor({state:'visible'});assert.equal(await page.locator('.text-bulk-dialog[open]').count(),0);
+  await page.locator('#studio-text').click();await page.locator('#studio-add-default-text').waitFor({state:'visible'});assert.equal(await page.locator('.cut-inspector #text-single').count(),0);assert(await page.locator('#studio-text-assets #text-srt').isVisible());assert.equal(await page.locator('.text-bulk-dialog[open]').count(),0);
   await page.locator('#studio-fit-timeline').click();
   const separator=page.getByRole('separator',{name:'素材与预览分隔线',exact:true});await separator.focus();await separator.press('ArrowRight');const layout=await page.evaluate(()=>localStorage.getItem('bingyi-cut-layout-v1'));assert.equal(JSON.parse(layout).left,.325);
   await page.locator('#cut-save').click();await page.waitForFunction(()=>document.querySelector('#cut-status').textContent.includes('已保存'));
@@ -55,4 +55,3 @@ const fs=require('fs'),path=require('path'),assert=require('node:assert/strict')
   assert.deepEqual(errors,[]);const report={sizes,imported:true,presetRatios:true,reopened:true,exported:true,pageErrors:errors};fs.writeFileSync(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
  }catch(error){const p=browser.contexts()[0]?.pages()[0];if(p){await p.screenshot({path:path.join(out,'failure.png')});console.log(await p.evaluate(()=>({status:document.querySelector('#cut-status')?.textContent})));}throw error;}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
-

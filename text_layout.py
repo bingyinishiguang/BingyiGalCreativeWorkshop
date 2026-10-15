@@ -1,10 +1,11 @@
 """Pixel-based story text boxes shared by preview and editable draft export."""
 from functools import lru_cache
 import math
+import os
 from pathlib import Path
 from PIL import ImageFont
 
-FONT = Path('C:/Windows/Fonts/msyh.ttc')
+FONT = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'Fonts' / 'msyh.ttc'
 
 def default_layout():
     return {'width':1920,'height':1080,

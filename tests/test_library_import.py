@@ -31,7 +31,7 @@ def _opaque_png(path: Path, size=(400, 600)) -> Path:
     return path
 
 
-#闸 1：格式白名单
+
 
 @pytest.mark.parametrize("name", ["歌.mp3", "曲.wav", "文本.txt", "压缩.zip", "没有扩展名"])
 def test_audio_and_non_image_extensions_are_rejected(tmp_path, name):
@@ -50,7 +50,7 @@ def test_audio_extension_gets_a_plain_language_reason(tmp_path):
     assert "音频" in result["reason"], result["reason"]
 
 
-#闸 2：真解码 / 真文件头
+
 
 def test_audio_renamed_to_png_is_rejected_by_magic_bytes(tmp_path):
     path = tmp_path / "伪装.png"
@@ -81,7 +81,7 @@ def test_text_file_renamed_png_is_rejected(tmp_path):
     assert result["level"] == LEVEL_REJECT
 
 
-#闸 3/4：透明立绘判定 + 尺寸
+
 
 def test_real_transparent_sprite_passes(tmp_path):
     result = validate_import_candidate(_sprite(tmp_path / "立绘.png"))
@@ -107,7 +107,7 @@ def test_opaque_png_is_rejected(tmp_path):
 def test_too_small_image_is_rejected(tmp_path):
     path = tmp_path / "小.png"
     Image.new("RGBA", (16, 16), (0, 0, 0, 0)).save(path)
-    #补足文件大小，确保不是被「文件太小」拦下，而是被尺寸拦下
+
     result = validate_import_candidate(path)
     assert result["level"] == LEVEL_REJECT
 
@@ -119,7 +119,7 @@ def test_validation_does_not_write_anything(tmp_path):
     assert {p.name for p in tmp_path.iterdir()} == before
 
 
-#入库 / 去重 / 强制导入
+
 
 def test_import_transparent_sprite(tmp_path):
     lib = SpriteLibrary(tmp_path / "lib")
@@ -212,7 +212,7 @@ def test_import_keeps_tags_given_as_comma_string(tmp_path):
     assert result["status"] == "imported", result.get("reason")
     tags = result["item"].get("tags") or []
     assert "本地导入" in tags and "常用" in tags, f"字符串标签不能被丢掉：{tags}"
-    #真的能按标签搜到
+
     assert library.list(False, tag="常用")["total"] == 1
 
 

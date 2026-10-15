@@ -95,11 +95,23 @@ def test_qml_loads(gallery_window):
     assert _find(gallery_window, "favoriteFilter") is not None
 
 
+@pytest.mark.parametrize('width', [329, 461, 700])
+def test_resize_grip_matches_search_height(gallery_window, width):
+    gallery_window.setProperty('width', width)
+    QGuiApplication.processEvents()
+    grip = _find(gallery_window, 'resizeGrip')
+    search = _find(gallery_window, 'searchBox')
+    assert grip.property('width') == search.property('height')
+    assert grip.property('height') == search.property('height')
+    assert grip.property('y') == search.property('y')
+    gallery_window.setProperty('width', 461)
+
+
 def test_gallery_is_topmost_by_default(gallery_env):
     root, stub = gallery_env
     flags = int(root.property("flags"))
     assert flags & int(Qt.WindowStaysOnTopHint), "总览窗口没有置顶标志"
-    #桥接口本身仍然可用（Python 侧拖拽时用它让位/归位）
+
     stub.topmost_calls.clear()
     stub.setGalleryTopmost(False)
     stub.setGalleryTopmost(True)
@@ -116,7 +128,7 @@ def test_card_geometry_fits_title_and_detail(gallery_window):
         f"卡片高度 {cell_height}px 装不下内容 "
         f"{root.property('cardContentHeight')}px：名称与说明会重叠"
     )
-    #必须容得下图 + 名称 + 说明三项之和；同时别撑得过分（避免每屏只看得到一行卡片）
+
     image_height = root.property("cardImageHeight")
     title_height = root.property("cardTitleHeight")
     detail_height = root.property("cardDetailHeight")
@@ -139,7 +151,7 @@ def test_category_filters_exist(gallery_window):
     assert game.property("count") >= 1, "作品下拉至少要有『全部作品』"
     assert game.property("displayText") == "全部作品"
     assert character.property("displayText") == "全部角色"
-    #标签作为选项并入收藏下拉，但仍必须能按标签筛
+
     assert tags.property("count") >= 1
 
 
@@ -230,7 +242,7 @@ def test_pin_button_is_gone_and_drag_auto_yields():
     qml = QML.read_text(encoding="utf-8")
     assert "property bool dragging: false" in qml, "缺少拖拽标志"
     assert "if (dragging)" in qml, "拖拽期间不能走「关总览」分支"
-    #桌宠的显示只由 pet.qml 的派生绑定负责，这里不该再命令式去藏它
+
     assert "pet.sinkPetWindow()" not in qml, "总览里不该再命令式藏桌宠（会造成状态错拍）"
 
 
@@ -250,17 +262,17 @@ def test_cascading_filter_math_with_real_data(gallery_window):
     })
     QGuiApplication.processEvents()
 
-    #两个都"全部" → 所有角色都在候选里（去重；顺序按 QML 的默认排序，这里只比集合）
+
     pool = _as_list(root.characterPool())
     assert set(pool) == {"A01_自然站姿_微笑", "华乃", "恵凪", "妃爱"}, pool
     assert len(pool) == 4, "妃爱同时出现在两部作品里，去重后不能重复"
 
-    #选了作品 → 角色候选只剩这部作品的角色（不会出现别的作品的角色）
+
     assert _as_list(root.charactersFor("常轨脱离")) == ["妃爱", "华乃"]
     assert _as_list(root.charactersFor("LimeLightLemonadeJam")) == ["恵凪", "妃爱"]
     assert "华乃" not in _as_list(root.charactersFor("LimeLightLemonadeJam"))
 
-    #作品候选 = 全量（选完不能塌成一项，否则换不回去）
+
     root.setProperty("activeCharacter", "华乃")
     QGuiApplication.processEvents()
     assert _as_list(root.gamesFor("华乃")) == ["常轨脱离"], "华乃只出现在常轨脱离"
@@ -284,7 +296,7 @@ def test_cascading_filter_math_with_real_data_cleanup(gallery_window):
     assert "gallery.gamesFor(gallery.activeCharacter)" in source
     assert "function syncFilterIndexes()" in source, "候选变化后要把下拉指回当前筛选值"
     assert "activeCharacter" in source and "activeGame" in source
-    #查询必须把角色也带上
+
     assert "activeTag, activeGame, activeCharacter" in source
 
     assert 'indexOf("姿势:")' in source
@@ -317,7 +329,7 @@ def test_root_respects_minimum_size(gallery_window):
     root = gallery_window
     assert root.property("minimumWidth") >= 280
     assert root.property("minimumHeight") >= 360
-    #不能把下限抬到用户的手感值 —— 那样就变成"替他决定大小"了
+
     assert root.property("minimumWidth") < 461, "下限不应高到限制手感"
     assert root.property("minimumHeight") < 455
 
@@ -333,13 +345,13 @@ def test_root_favorite_flag_follows_the_dropdown(gallery_window):
     combo = _find(gallery_window, "favoriteFilter")
     assert gallery_window.property("favoriteOnly") is False
 
-    #模拟用户在下拉里选中「只看收藏」（第 1 项）
+
     combo.setProperty("currentIndex", 1)
     combo.activated.emit(1)
     assert gallery_window.property("favoriteOnly") is True
     assert combo.property("displayText") == "只看收藏"
 
-    #再选回第 0 项 = 不筛选
+
     combo.setProperty("currentIndex", 0)
     combo.activated.emit(0)
     assert gallery_window.property("favoriteOnly") is False
@@ -350,7 +362,7 @@ def test_filter_label_is_not_clipped(gallery_window):
     label = _find(gallery_window, "favoriteFilterLabel")
     arrow = _find(gallery_window, "favoriteFilterArrow")
 
-    #自定义 contentItem 必须自己让出箭头位置，否则文字会被箭头压住或裁掉。
+
     needed = (label.property("leftPadding")
               + label.property("implicitWidth")
               + label.property("rightPadding"))
@@ -371,7 +383,7 @@ def test_dropdown_popup_has_light_background(gallery_window):
     bg = _find(gallery_window, "favoriteFilterPopupBg")
     label = _find(gallery_window, "favoriteFilterLabel")
 
-    #把弹层打开，确保拿到的是真实生效的样式而不是未初始化值
+
     combo.setProperty("currentIndex", 0)
     popup.setProperty("visible", True)
     QGuiApplication.processEvents()
@@ -379,7 +391,7 @@ def test_dropdown_popup_has_light_background(gallery_window):
     fill = bg.property("color").name().lower()
     assert fill == "#ffffff", f"下拉弹层底色是 {fill}，应为白色，否则深色字看不清"
 
-    #弹层里的文字用深色（在浅底上可读）
+
     text_color = label.property("color").name().lower()
     assert text_color not in ("#ffffff", "#f4fbff"), "弹层文字是浅色，在浅底上看不见"
 

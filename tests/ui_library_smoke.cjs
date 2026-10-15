@@ -4,6 +4,7 @@ const { chromium } = e2e;
 (async () => {
   const browser = await chromium.launch({ executablePath: e2e.requireBrowser(), headless: true });
   const page = await browser.newPage({ viewport: { width: 1366, height: 820 } });
+  await require('./ui_composer_fixture.cjs').mockComposer(page);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const sample = special => ({ id: special ? 'b'.repeat(32) : 'a'.repeat(32), game: '测试作品',

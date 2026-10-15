@@ -22,10 +22,10 @@ class AppSettingsTest(unittest.TestCase):
             single.mkdir()
             try:
                 settings = AppSettings(root, code_dir=root)
-                #单张导出默认落盘（不再默认走浏览器下载）
+
                 self.assertEqual(settings.snapshot()["singleMode"], "folder")
                 self.assertEqual(settings.batch_directory(), batch)
-                #留空 singlePath 是合法状态：落到默认 Single 目录，而不是报错
+
                 self.assertEqual(settings.single_directory(), batch / "Single")
                 values = {"singleMode": "folder", "singlePath": str(single), "batchPath": str(batch)}
                 saved = settings.save(values)
@@ -44,8 +44,8 @@ class AppSettingsTest(unittest.TestCase):
                     settings.save({**values, "batchPath": str(root / "sprite-packs")})
                 library = batch / "Library"
                 library.mkdir(exist_ok=True)
-                #断言使用统一的图库目录名称。
-                #不写死字面量，目录改名时这条断言自动跟上。
+
+
                 with self.assertRaisesRegex(ValueError, app_paths.LIBRARY_DIR_NAME):
                     settings.save({**values, "batchPath": str(library)})
             finally:

@@ -3,7 +3,7 @@
   const el = id => document.getElementById(id);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function api(path, body) {
-    const response = await fetch(path, body === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const response = await fetch(path, body === undefined ? {cache:'no-store'} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '操作失败');
     return data;
@@ -14,10 +14,16 @@
     finally { if (button) button.disabled = false; }
   }
   let backgrounds = [], bgSelection = new Set(), bgSelected = null, bgSerial = 0;
+  let bgDetailRevision=0;const bgPendingSaves=new Set();
+  window.workshopActivity ||= {};
+  window.workshopActivity.backgroundLibrary=()=>bgPendingSaves.size>0;
   let allBackgrounds = [], sprites = [], spriteOffset = 0, spriteTotal = 0;
   let assetKind = 'background', assetSerial = 0, activeScene = -1, scenes = [], projectId = '', output = '';
   let cutInitialized = false, dirty = false, cutBusy = false, roleTarget = 0, visualTarget = 'background';
+  let projectLoadSerial=0,projectRevision=0;
   let transformEdit = null;
+  let cleanProjectName='新草稿项目';
+  const hasUnsavedChanges=()=>dirty||Boolean(transformEdit)||el('cut-name').value!==cleanProjectName;
   const spriteSizes = new Map(), geometry = window.cutGeometry;
   const canvasSize = () => el('cut-canvas').value.split('x').map(Number);
   function transformFor(scene, actor=null) {
@@ -31,20 +37,20 @@
   const spriteUrl = actor => '/api/roughcut/sprite?id=' + encodeURIComponent(actor.id)+(actor.alignment?'&alignment='+encodeURIComponent(JSON.stringify(actor.alignment)):'');
   const background = id => allBackgrounds.find(i => i.id === id) || backgrounds.find(i => i.id === id);
   const spriteName = id => { const s = sprites.find(i => i.id === id); return s?.displayName || s?.character || '已选立绘'; };
-  const markDirty = () => { dirty = true; el('cut-status').textContent = '项目有未保存的修改'; window.dispatchEvent(new Event('cut-changed')); };
+  const markDirty = () => { dirty = true; projectRevision++; el('cut-status').textContent = '项目有未保存的修改'; window.dispatchEvent(new Event('cut-changed')); };
   let assetViewing=false;
   function clearAssetView(){
     assetViewing=false;el('cut-preview').classList.remove('asset-previewing');
-    el('cut-preview').querySelectorAll('video').forEach(v=>v.pause());
+    el('cut-preview').querySelectorAll('video,audio').forEach(v=>v.pause());
     el('cut-assets').querySelectorAll('.asset-viewed').forEach(card=>{card.classList.remove('asset-viewed');card.querySelector('.asset-open')?.setAttribute('aria-pressed','false');});
   }
-  function returnToTimeline(){if(!assetViewing)return;clearAssetView();renderPreview();}
+  function returnToTimeline(){if(!assetViewing)return;clearAssetView();renderPreview();window.cutText?.renderPreview();}
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&assetViewing)returnToTimeline();});
   document.addEventListener('pointerdown',event=>{if(event.target.closest('#editor-timeline-scroll'))returnToTimeline();},true);
   document.addEventListener('click',event=>{
     if(assetViewing&&event.target.closest('#dialogue-play,#dialogue-stop')){
-      event.preventDefault();event.stopImmediatePropagation();const video=el('cut-preview').querySelector('video');
-      if(video){if(event.target.closest('#dialogue-stop'))video.pause();else if(video.paused)video.play().catch(()=>{});else video.pause();}return;
+      event.preventDefault();event.stopImmediatePropagation();const video=el('cut-preview').querySelector('video,audio');
+      if(video){if(event.target.closest('#dialogue-stop'))video.pause();else if(video.paused)playAsset(video);else video.pause();}return;
     }
     if(event.target.closest('#editor-timeline-scroll'))returnToTimeline();
   },true);
@@ -52,33 +58,54 @@
   assetTarget.innerHTML='立绘目标 <select id="cut-asset-target" aria-label="立绘添加或替换目标"><option value="0">角色 1</option><option value="1">角色 2</option></select>';
   el('cut-assets').before(assetTarget);
   el('cut-asset-target').onchange=event=>chooseRole(Number(event.target.value));
+  function playAsset(media){media.play().catch(error=>{if(!media.isConnected||error.name==='AbortError')return;el('cut-status').textContent=error.name==='NotAllowedError'?'未能自动播放，请点击预览区的播放按钮。':'素材播放失败，请检查音频或视频文件。';});}
   function showAsset(item,kind){
     window.cutV2?.stopPlayback?.();clearAssetView();assetViewing=true;
     el('cut-assets').querySelectorAll('.production-tile').forEach(card=>{const selected=card.dataset.assetId===item.id;card.classList.toggle('asset-viewed',selected);card.querySelector('.asset-open')?.setAttribute('aria-pressed',String(selected));});
     const name=kind==='sprite'?(item.displayName||item.character||'立绘'):item.name;
-    const media=document.createElement(kind==='background'&&item.kind==='video'?'video':'img');
-    media.src=kind==='sprite'?'/api/library/image?id='+encodeURIComponent(item.id):bgUrl(item.id);
-    media.alt=name;media.className='asset-preview-media';if(media.tagName==='VIDEO'){media.controls=true;media.preload='metadata';}
+    const media=document.createElement(kind==='audio'?'audio':kind==='background'&&item.kind==='video'?'video':'img');
+    media.src=kind==='audio'?'/api/audio/media?id='+encodeURIComponent(item.id):kind==='sprite'?'/api/library/image?id='+encodeURIComponent(item.id):bgUrl(item.id);
+    media.alt=name;media.className='asset-preview-media';if(['VIDEO','AUDIO'].includes(media.tagName)){media.controls=true;media.preload='metadata';}
+    media.addEventListener('error',()=>{if(media.isConnected&&assetViewing)el('cut-status').textContent='素材「'+name+'」无法预览，请检查文件或重新导入。';});
     const bar=document.createElement('div');bar.className='asset-preview-bar';
     const title=document.createElement('span');title.textContent='素材预览 · '+name;
     bar.append(title);const preview=el('cut-preview');preview.classList.add('asset-previewing');preview.replaceChildren(media,bar);
-    if(media.tagName==='VIDEO'){media.autoplay=true;media.play().catch(()=>{});}
+    if(['VIDEO','AUDIO'].includes(media.tagName)){media.autoplay=true;playAsset(media);}
   }
   function updateAssetActions(){
     const scene=scenes[activeScene];el('cut-asset-target').value=String(roleTarget);
+    const hint=el('cut-asset-hint'),scroller=hint.closest('.studio-material-scroll');
+    if(scroller)scroller.before(hint,assetTarget);
     const spriteTab=el('cut-sprite-tab').classList.contains('active');assetTarget.hidden=!spriteTab;
+    const occupied=scene?.actors.some(a=>(a.slot||0)===roleTarget),otherSlot=roleTarget===0?1:0;
+    if(spriteTab){
+      el('cut-asset-hint').textContent=!scene?'加号暂不可用：先到「素材」添加图片或视频镜头，再添加人物。':scene.blank?'加号暂不可用：当前是背景空隙，请先添加背景或选择有背景的镜头。':occupied?`加号暂不可用：角色 ${roleTarget+1} 已有立绘，请用下方「替换角色 ${roleTarget+1}」更换。${scene.actors.some(a=>(a.slot||0)===otherSlot)?'两个角色位置都已占用。':`添加另一人物时，将立绘目标改为角色 ${otherSlot+1}。`}`:`右下角 ＋ 添加到角色 ${roleTarget+1}；点击图片只预览，不修改当前镜头。`;
+    }else if(el('cut-bg-tab').classList.contains('active'))el('cut-asset-hint').textContent='点击图片 / 视频只预览；点右下角 ＋ 添加一个背景镜头。';
     el('cut-assets').querySelectorAll('[data-add-asset],[data-replace-asset]').forEach(button=>{
       const card=button.closest('.production-tile'),sprite=card.dataset.assetKind==='sprite',occupied=scene?.actors.some(a=>(a.slot||0)===roleTarget),replace=button.hasAttribute('data-replace-asset');
-      button.textContent=sprite?`${replace?'替换':'添加'}角色 ${roleTarget+1}`:'＋';
-      button.disabled=card.dataset.missing==='true'||(replace?(!scene||(sprite&&!occupied)):(sprite&&(!scene||occupied)));
-      button.title=!sprite?'添加到轨道':sprite&&occupied&&!replace?'此角色已有立绘，请使用替换按钮':sprite&&!scene?'请先添加背景镜头':button.textContent;
-      if(!sprite)button.setAttribute('aria-label','添加到轨道');
+      const actionLabel=sprite?`${replace?'替换':'添加'}角色 ${roleTarget+1}`:'添加到轨道';
+      button.textContent=replace?actionLabel:'＋';
+      button.disabled=card.dataset.missing==='true'||(sprite&&scene?.blank)||(replace?(!scene||(sprite&&!occupied)):(sprite&&(!scene||occupied)));
+      button.title=card.dataset.missing==='true'?'素材文件丢失，请先重新导入或恢复文件':!sprite?'添加到轨道':!scene?'请先添加背景镜头':scene.blank?'当前是背景空隙，请选择有背景的镜头':occupied&&!replace?`角色 ${roleTarget+1} 已有立绘，请使用下方替换按钮`:replace&&!occupied?`角色 ${roleTarget+1} 还没有立绘，请点右下角 ＋ 添加`:actionLabel;
+      button.setAttribute('aria-label',actionLabel);
+      if(sprite&&!replace){
+        const reason=card.querySelector('.asset-add-reason');
+        reason.hidden=!button.disabled;
+        reason.textContent=card.dataset.missing==='true'?'素材文件丢失，请重新导入':!scene?'先添加背景镜头':scene.blank?'先添加背景或选择有背景的镜头':occupied?`角色 ${roleTarget+1} 已有立绘，请用替换`:'';
+        if(button.disabled)button.setAttribute('aria-describedby',reason.id);else button.removeAttribute('aria-describedby');
+      }
     });
   }
   function applyAsset(item,kind,replace){
     if(cutBusy||item.missing)return;finishTransformEdit();
     if(kind==='background'){
-      const next=activeScene+1;scenes.splice(next,0,newScene(item.id));activeScene=next;
+      const gap=scenes[activeScene];
+      if(gap?.blank){
+        const added=newScene(item.id),fps=Number(el('cut-fps').value)||30;
+        added.duration=Math.min(added.duration,gap.duration,item.kind==='video'?item.duration:Infinity);
+        const remaining=Math.round((gap.duration-added.duration)*fps)/fps;
+        scenes.splice(activeScene,1,added,...(remaining>0?[{...gap,duration:remaining}]:[]));
+      }else{const next=activeScene+1;scenes.splice(next,0,newScene(item.id));activeScene=next;}
       visualTarget='background';
     }else{
       const scene=scenes[activeScene];if(!scene){el('cut-status').textContent='请先添加背景镜头';return;}
@@ -152,24 +179,34 @@
     }
   }
   function showBackground(item) {
+    clearBgDetail();
     bgSelected = item;
     const trash = el('bg-trash-view').checked;
     el('bg-detail').innerHTML = `<h3>${escape(item.name)}</h3>${item.kind==='video' ? `<video src="${bgUrl(item.id,false,trash)}" controls preload="metadata"></video>` : `<img src="${bgUrl(item.id,false,trash)}" alt="${escape(item.name)}">`}<p>${item.width} × ${item.height}${item.kind==='video'?' · '+item.duration.toFixed(2)+' 秒':''}</p>${trash ? '<button id="bg-restore" type="button">恢复背景</button>' : `<label>名称<input id="bg-edit-name" value="${escape(item.name)}" maxlength="200"></label><label>标签（逗号分隔）<input id="bg-edit-tags" value="${escape(item.tags.join(', '))}"></label><label><input id="bg-edit-favorite" type="checkbox" ${item.favorite?'checked':''}>收藏</label><div class="production-actions"><button id="bg-edit-save" type="button">保存资料</button><button id="bg-use" type="button">加入粗剪</button><button id="bg-trash" type="button">移入回收站</button></div>`}`;
     if (trash) el('bg-restore').onclick = () => run('bg-status',el('bg-restore'),async () => {
-      await api('/api/backgrounds/restore',{id:item.id}); el('bg-status').textContent='已恢复背景'; clearBgDetail(); await loadBackgrounds();
+      await api('/api/backgrounds/restore',{id:item.id}); el('bg-status').textContent='已恢复背景'; if(bgSelected?.id===item.id)clearBgDetail(); await loadBackgrounds();
     });
     else {
+      el('bg-detail').querySelectorAll('input').forEach(input=>input.addEventListener('input',()=>bgDetailRevision++));
+      el('bg-edit-save').disabled=bgPendingSaves.has(item.id);
       el('bg-edit-save').onclick = () => run('bg-status',el('bg-edit-save'),async () => {
-        const updated = await api('/api/backgrounds/update',{id:item.id,name:el('bg-edit-name').value,tags:el('bg-edit-tags').value,favorite:el('bg-edit-favorite').checked});
-        await loadBackgrounds(); showBackground(updated); el('bg-status').textContent='名称、标签与收藏已保存';
+        if(bgPendingSaves.has(item.id))return;
+        const revision=bgDetailRevision,values={id:item.id,name:el('bg-edit-name').value,tags:el('bg-edit-tags').value,favorite:el('bg-edit-favorite').checked};
+        bgPendingSaves.add(item.id);el('bg-status').textContent='正在保存背景资料…';
+        try{
+          const updated=await api('/api/backgrounds/update',values);let warning='';try{await loadBackgrounds();}catch(error){warning=' 列表暂未刷新：'+error.message;}
+          const unchanged=bgSelected?.id===item.id&&bgDetailRevision===revision;
+          if(unchanged)showBackground(updated);
+          el('bg-status').textContent=(bgSelected?.id===item.id&&!unchanged?'背景资料已保存；之后的修改仍待保存。':'背景「'+updated.name+'」的名称、标签与收藏已保存')+warning;
+        }finally{bgPendingSaves.delete(item.id);if(el('bg-edit-save'))el('bg-edit-save').disabled=bgPendingSaves.has(bgSelected?.id);}
       });
       el('bg-trash').onclick = () => run('bg-status',el('bg-trash'),async () => {
-        await api('/api/backgrounds/trash',{id:item.id}); bgSelection.delete(item.id); clearBgDetail(); await loadBackgrounds(); el('bg-status').textContent='已移入回收站，之后可恢复';
+        await api('/api/backgrounds/trash',{id:item.id}); bgSelection.delete(item.id); if(bgSelected?.id===item.id)clearBgDetail(); await loadBackgrounds(); el('bg-status').textContent='已移入回收站，之后可恢复';
       });
       el('bg-use').onclick = () => enterWithBackgrounds([item.id]);
     }
   }
-  function clearBgDetail() { bgSelected=null; el('bg-detail').innerHTML='<p>选择背景查看预览、名称与标签。</p>'; }
+  function clearBgDetail() { el('bg-detail').querySelectorAll('video,audio').forEach(media=>media.pause());bgDetailRevision++;bgSelected=null; el('bg-detail').innerHTML='<p>选择背景查看预览、名称与标签。</p>'; }
   async function importBackgrounds(folder=false) {
     const button=el(folder?'bg-import-folder':'bg-import');
     await run('bg-status',button,async () => {
@@ -202,9 +239,22 @@
     });
   }
   function newScene(id) { return {background:id,duration:Number(el('cut-batch-duration').value)||4,videoStart:0,restart:false,loop:false,actors:activeScene>=0?structuredClone(scenes[activeScene].actors):[]}; }
+  function ensureCoverage(end){
+    const fps=Number(el('cut-fps').value)||30;
+    if(!Number.isFinite(end)||end<=0||end>10800)return;
+    let remaining=Math.ceil(end*fps-1e-7)-scenes.reduce((sum,s)=>sum+Math.round(s.duration*fps),0);
+    if(remaining<=0)return;
+    const last=scenes.at(-1),info=last?background(last.background):null;
+    const canExtend=last&&(last.blank||info?.kind==='image'||(info?.kind==='video'&&last.loop));
+    const available=canExtend?Math.max(0,3600*fps-Math.round(last.duration*fps)):0;
+    if(scenes.length+Math.ceil(Math.max(0,remaining-available)/(3600*fps))>500)return;
+    if(canExtend){const amount=Math.min(remaining,available);last.duration=(Math.round(last.duration*fps)+amount)/fps;remaining-=amount;}
+    while(remaining>0){const frames=Math.min(remaining,3600*fps);scenes.push({blank:true,background:'',duration:frames/fps,videoStart:0,restart:true,loop:false,actors:[]});remaining-=frames;}
+    if(activeScene<0)activeScene=0;
+  }
   async function initializeCut() {
     if (!cutInitialized) {
-      const options=await api('/api/roughcut/options'); el('cut-directory').value=options.draftDirectory;
+      const options=await api('/api/roughcut/options'); el('cut-directory').value=options.draftDirectory;el('cut-material-directory').value=options.materialDirectory||'';
       cutInitialized=true;
     }
     await refreshProjects(); await loadAssets();
@@ -212,6 +262,7 @@
   async function refreshProjects() {
     const data=await api('/api/roughcut/projects');
     el('cut-projects').innerHTML='<option value="">打开已保存项目…</option>' + data.items.map(i=>`<option value="${i.id}">${escape(i.name)} · ${escape(i.updated)}</option>`).join('');
+    el('cut-projects').value=data.items.some(i=>i.id===projectId)?projectId:'';
   }
   async function loadAssets(more=false) {
     const serial=++assetSerial;
@@ -221,7 +272,6 @@
     const data=await api(loadedKind==='background'?'/api/backgrounds?'+new URLSearchParams({search}):'/api/roughcut/sprites?'+new URLSearchParams({search,offset:String(spriteOffset)}));
     if (serial!==assetSerial) return;
     el('cut-bg-tab').classList.toggle('active',assetKind==='background'); el('cut-sprite-tab').classList.toggle('active',assetKind==='sprite');
-    el('cut-asset-hint').textContent='点击素材只查看预览；用添加或替换按钮修改当前镜头。';
     if (assetKind==='background') {
       //Preserve full metadata for already selected scenes while filtering the visible asset list.
       for (const item of data.items) { const ix=allBackgrounds.findIndex(i=>i.id===item.id); if (ix>=0) allBackgrounds[ix]=item; else allBackgrounds.push(item); }
@@ -234,9 +284,11 @@
       card.querySelector('.asset-open').onclick=()=>showAsset(item,loadedKind);
       const actions=document.createElement('div');actions.className='asset-edit-actions';
       for(const replace of (loadedKind==='background'?[false]:[false,true])){const button=document.createElement('button');button.type='button';button.setAttribute(replace?'data-replace-asset':'data-add-asset',item.id);button.onclick=()=>applyAsset(item,loadedKind,replace);actions.append(button);}
-      if(loadedKind==='background'){
-        const surface=document.createElement('div');surface.className='asset-preview-surface';surface.append(card.querySelector('.asset-open'),actions.firstChild);card.prepend(surface);
-      }else card.append(actions);
+      const surface=document.createElement('div');surface.className='asset-preview-surface';surface.append(card.querySelector('.asset-open'),actions.firstChild);card.prepend(surface);
+      if(loadedKind==='sprite'){
+        card.append(actions);
+        const reason=document.createElement('small');reason.className='asset-add-reason';reason.id='sprite-add-reason-'+item.id;reason.hidden=true;card.append(reason);
+      }
       grid.append(card);
     }
     el('cut-assets-more').hidden=assetKind!=='sprite'||sprites.length>=spriteTotal;
@@ -342,11 +394,12 @@
     return {id:projectId||undefined,name:el('cut-name').value,width,height,fps:Number(el('cut-fps').value),scenes,...(window.cutV2?.snapshot()||{}),...(window.cutText?.snapshot()||{}),...(window.cutScript?.snapshot()||{}),...(window.cutLayers?.snapshot()||{})};
   }
   function adopt(project,{preserveHistory=false}={}) {
+    projectLoadSerial++;projectRevision++;
     finishTransformEdit(false);
     const previousTime=Number(el('dialogue-preview-time')?.value)||0;
-    projectId=project.id; scenes=project.scenes;el('cut-name').value=project.name;
+    projectId=project.id; scenes=project.scenes;el('cut-name').value=project.name;cleanProjectName=el('cut-name').value;
     setCanvas(project.width,project.height);el('cut-fps').value=String(project.fps);
-    if(!preserveHistory){visualTarget='background';roleTarget=0;}
+    if(!preserveHistory){visualTarget='background';roleTarget=0;output='';el('cut-open-output').hidden=true;}
     window.cutLayers?.adopt(project);
     activeScene=scenes.length?0:-1;dirty=false;window.cutV2?.adopt(project);window.cutText?.adopt(project);window.cutScript?.adopt(project);renderCut();if(preserveHistory)window.cutV2.locate(previousTime);window.dispatchEvent(new CustomEvent('cut-project-loaded',{detail:{preserveHistory}}));
   }
@@ -354,23 +407,32 @@
     if(cutBusy)return;
     finishTransformEdit();
     const snapshot=structuredClone(payload());
+    if(!snapshot.scenes.length){el('cut-status').textContent='先添加图片或视频到时间轴，再保存项目或生成剪映草稿。';return;}
     const preflight=window.cutValidation.check(snapshot,window.cutV2.audioItems());
     if(exportDraft?!preflight.canExport:!preflight.canSave){el('cut-status').textContent='请先修正时间轴提示：'+preflight.issues.find(i=>exportDraft?i.blocksExport:i.blocksSave).message;window.dispatchEvent(new Event('cut-preflight-open'));return;}
     if(exportDraft){const overlaps=preflight.issues.filter(i=>i.code==='cue-overlap');if(overlaps.length&&!window.confirm(`有 ${overlaps.length} 处字幕时间重叠，会同时显示并可能叠字。继续保留这些重叠并导出吗？`))return;}
     cutBusy=true;
     el('roughcut-page').inert=true;
-    await run('cut-status',el(exportDraft?'cut-export':'cut-save'),async ()=> {
-      el('cut-save').disabled=true;el('cut-export').disabled=true;
-      try {
-        if(exportDraft) {await api('/api/roughcut/options',{draftDirectory:el('cut-directory').value});el('cut-status').textContent='正在复制素材并生成分轨草稿…';}
-        const data=await api(exportDraft?'/api/roughcut/export':'/api/roughcut/save',snapshot);
-        adopt(exportDraft?data.project:data,{preserveHistory:true});await refreshProjects();
-        if(exportDraft) {output=data.path;el('cut-open-output').hidden=false;el('cut-status').textContent=`已生成 ${data.duration.toFixed(2)} 秒草稿：${data.path}。请在剪映打开检查。`;}
-        else el('cut-status').textContent='粗剪项目已保存，可以从上方列表再次打开。';
-      } finally {el('cut-save').disabled=false;el('cut-export').disabled=false;}
-    });
-    cutBusy=false;
-    el('roughcut-page').inert=false;
+    el('cut-save').disabled=true;el('cut-export').disabled=true;
+    el('cut-status').textContent=exportDraft?'正在准备剪映草稿…':'正在保存项目…';
+    window.dispatchEvent(new Event('cut-save-state'));
+    try {
+      if(exportDraft) {await api('/api/roughcut/options',{draftDirectory:el('cut-directory').value,materialDirectory:el('cut-material-directory').value});el('cut-status').textContent='正在复制素材并生成分轨草稿…';}
+      const data=await api(exportDraft?'/api/roughcut/export':'/api/roughcut/save',snapshot);
+      adopt(exportDraft?data.project:data,{preserveHistory:true});
+      const success=exportDraft?`已生成 ${data.duration.toFixed(2)} 秒草稿：${data.path}。请在剪映打开检查。`:'项目已保存，可从“项目与导出设置”重新打开。';
+      if(exportDraft) {output=data.path;el('cut-open-output').hidden=false;}
+      el('cut-status').textContent=success;
+      try {await refreshProjects();}
+      catch(error) {el('cut-status').textContent=success+' 项目列表暂未刷新：'+error.message+'；稍后重新进入工作区即可重试。';}
+    } catch(error) {
+      el('cut-status').textContent=error.message;
+    } finally {
+      cutBusy=false;
+      el('roughcut-page').inert=false;
+      el('cut-save').disabled=false;el('cut-export').disabled=false;
+      window.dispatchEvent(new Event('cut-save-state'));
+    }
   }
   el('nav-backgrounds').onclick=()=>switchPage('backgrounds'); el('cut-back').onclick=()=>switchPage('tools');
   el('bg-import').onclick=()=>importBackgrounds();el('bg-import-folder').onclick=()=>importBackgrounds(true);
@@ -394,19 +456,34 @@
     else el('cut-status').textContent='已取消选择草稿目录';
   });
   el('cut-directory').addEventListener('input',markDirty);
+  el('cut-material-directory').addEventListener('input',markDirty);
+  el('cut-choose-material-directory').onclick=()=>run('cut-status',el('cut-choose-material-directory'),async()=>{
+    el('cut-status').textContent='正在选择素材目录…';
+    const data=await api('/api/settings/choose-folder',{target:'episode',initial:el('cut-material-directory').value});
+    if(data.path){el('cut-material-directory').value=data.path;markDirty();el('cut-status').textContent='素材目录：'+data.path;}
+    else el('cut-status').textContent='已取消选择素材目录';
+  });
   el('cut-projects').onchange=()=>run('cut-status',null,async()=> {
     const id=el('cut-projects').value;if(!id)return;
-    if(dirty&&!window.confirm('当前修改尚未保存，确定打开其他项目吗？'))return;
-    allBackgrounds=(await api('/api/backgrounds')).items;adopt(await api('/api/roughcut/project?id='+id));el('cut-status').textContent='已打开粗剪项目';
+    if(hasUnsavedChanges()&&!window.confirm('当前修改尚未保存，确定打开其他项目吗？')){el('cut-projects').value=projectId||'';return;}
+    const serial=++projectLoadSerial,revision=projectRevision,name=el('cut-name').value;
+    try {
+      const [assets,project]=await Promise.all([api('/api/backgrounds'),api('/api/roughcut/project?id='+id)]);
+      if(serial!==projectLoadSerial)return;
+      if(revision!==projectRevision||name!==el('cut-name').value){el('cut-projects').value=projectId||'';el('cut-status').textContent='当前项目已有新修改，已取消打开其他项目。';return;}
+      allBackgrounds=assets.items;adopt(project);el('cut-status').textContent='已打开粗剪项目';
+    }
+    catch(error){if(serial!==projectLoadSerial)return;el('cut-projects').value=projectId||'';throw error;}
   });
-  el('cut-new').onclick=()=>{finishTransformEdit();if(dirty&&!window.confirm('当前修改尚未保存，确定新建项目吗？'))return;projectId='';scenes=[];activeScene=-1;visualTarget='background';roleTarget=0;dirty=false;output='';clearAssetView();el('cut-open-output').hidden=true;el('cut-name').value='新粗剪项目';window.cutLayers?.adopt({});window.cutV2?.adopt({});window.cutText?.adopt({});window.cutScript?.adopt({});renderCut();window.dispatchEvent(new Event('cut-project-loaded'));el('cut-status').textContent='已新建项目';};
-  for(const id of ['cut-name','cut-fps'])el(id).onchange=()=>{markDirty();renderCut();};
+  el('cut-new').onclick=()=>{finishTransformEdit();if(hasUnsavedChanges()&&!window.confirm('当前修改尚未保存，确定新建项目吗？'))return;projectLoadSerial++;projectRevision++;projectId='';scenes=[];activeScene=-1;visualTarget='background';roleTarget=0;dirty=false;output='';clearAssetView();el('cut-open-output').hidden=true;el('cut-name').value='新草稿项目';cleanProjectName=el('cut-name').value;el('cut-projects').value='';window.cutLayers?.adopt({});window.cutV2?.adopt({});window.cutText?.adopt({});window.cutScript?.adopt({});renderCut();window.dispatchEvent(new Event('cut-project-loaded'));el('cut-status').textContent='已新建项目';};
+  el('cut-name').onchange=()=>{if(el('cut-name').value!==cleanProjectName)markDirty();else window.dispatchEvent(new Event('cut-changed'));renderCut();};
+  el('cut-fps').onchange=()=>{markDirty();renderCut();};
   function setCanvas(w,h){const select=el('cut-canvas'),value=`${w}x${h}`;if(![...select.options].some(o=>o.value===value)){const custom=select.querySelector('[data-custom]');custom.value=value;custom.textContent=`自定义 ${w} × ${h}`;}select.value=value;el('cut-width').value=w;el('cut-height').value=h;}
   el('cut-canvas').onchange=()=>{setCanvas(...canvasSize());markDirty();renderCut();};
   for(const id of ['cut-width','cut-height'])el(id).onchange=()=>{const w=Number(el('cut-width').value),h=Number(el('cut-height').value);if(![w,h].every(v=>Number.isInteger(v)&&v>=320&&v<=3840)){el('cut-status').textContent='宽高需为 320–3840 的整数';setCanvas(...canvasSize());return;}setCanvas(w,h);markDirty();renderCut();};
-  window.addEventListener('beforeunload',event=>{if(dirty||transformEdit){event.preventDefault();event.returnValue='';}});
-  window.cutEditor={api,escape,markDirty,render:renderCut,snapshot:payload,restore:adopt,refreshAssets:loadAssets,save:()=>saveCut(false),
-    applyTimeline(value){scenes=value.scenes;activeScene=scenes.length?0:-1;window.cutLayers?.adopt(value);window.cutV2.adopt(value);window.cutText.adopt(value);window.cutScript.adopt(value);markDirty();renderCut();},
+  window.addEventListener('beforeunload',event=>{if(hasUnsavedChanges()){event.preventDefault();event.returnValue='';}});
+  window.cutEditor={api,escape,markDirty,render:renderCut,snapshot:payload,restore:adopt,ensureCoverage,refreshAssets:loadAssets,cancelAssetLoad:()=>{assetSerial++;},previewAsset:showAsset,save:()=>saveCut(false),isDirty:hasUnsavedChanges,isBusy:()=>cutBusy,
+    applyTimeline(value,{coverContent=false}={}){scenes=value.scenes;activeScene=scenes.length?0:-1;window.cutLayers?.adopt(value);window.cutV2.adopt(value);window.cutText.adopt(value);window.cutScript.adopt(value);if(coverContent)ensureCoverage(Math.max(0,...[...(value.audioClips||[]),...(value.textClips||[])].map(clip=>clip.start+clip.duration)));markDirty();renderCut();},
     async openGeneratedProject(project){allBackgrounds=(await api('/api/backgrounds')).items;await window.cutV2.loadAudio();adopt(project);await refreshProjects();output='';el('cut-open-output').hidden=true;},
     get scenes(){return scenes;},get activeScene(){return activeScene;},
     get visualSelection(){return {index:activeScene,kind:visualTarget==='background'?'background':'actor',slot:visualTarget==='background'?null:Number(visualTarget)};},
@@ -415,8 +492,7 @@
   window.addEventListener('workshop-page',event=> {
     if(event.detail==='backgrounds')run('bg-status',null,loadBackgrounds);
     if(event.detail==='roughcut')run('cut-status',null,async()=>{await initializeCut();renderCut();});
-    if(event.detail!=='roughcut')el('cut-preview').querySelectorAll('video').forEach(v=>v.pause());
+    if(event.detail!=='roughcut')el('cut-preview').querySelectorAll('video,audio').forEach(v=>v.pause());
     if(event.detail!=='backgrounds')el('bg-detail').querySelectorAll('video').forEach(v=>v.pause());
   });
 })();
-

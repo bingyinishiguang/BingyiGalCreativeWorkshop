@@ -21,7 +21,7 @@ class LibraryRecoveryTest(unittest.TestCase):
             root = Path(directory) / "Library"
             root.mkdir(parents=True)
             (root / app_paths.LIBRARY_DB_NAME).write_bytes(b"definitely not a sqlite database" * 8)
-            library = SpriteLibrary(root)  #不应抛异常
+            library = SpriteLibrary(root)
             item = library.save("G", "C", "B", "f1", "normal",
                                 Image.new("RGBA", (40, 80), (1, 2, 3, 255)), ["t"])
             self.assertTrue(item["id"])
@@ -46,7 +46,7 @@ class LibraryRecoveryTest(unittest.TestCase):
             digest = connection.execute("SELECT content_hash FROM sprites WHERE id = ?",
                                         (saved["id"],)).fetchone()[0]
             connection.execute("UPDATE sprites SET content_hash = '' WHERE id = ?", (saved["id"],))
-            #另存一份内容相同、路径不同的图，并登记成已哈希的第二条
+
             second_relative = "images/zz/cccccccccccccccccccccccccccccccc.png"
             destination = root / second_relative
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -60,7 +60,7 @@ class LibraryRecoveryTest(unittest.TestCase):
             connection.commit()
             connection.close()
 
-            reopened = SpriteLibrary(root)  #不应抛异常
+            reopened = SpriteLibrary(root)
             self.assertEqual(reopened.list(False, limit=10)["total"], 2, "两条记录都必须保留")
             self.assertFalse(list(root.glob("*.broken-*")), "有冲突不等于库坏了，不能隔离整个库")
             tags = [item.get("tags") or [] for item in reopened.list(False, limit=10)["items"]]
@@ -269,7 +269,7 @@ def test_orphan_scan_and_cleanup_are_safe(tmp_path):
     image.save(source)
     library.import_image(source, "角色", "标签", game="作品")
 
-    #模拟"写到一半被杀"：无记录的 PNG + 缩略图，并把 mtime 拨老
+
     orphan_dir = library.images / "zz"
     orphan_dir.mkdir(parents=True, exist_ok=True)
     orphan = orphan_dir / ("a" * 32 + ".png")
@@ -284,12 +284,12 @@ def test_orphan_scan_and_cleanup_are_safe(tmp_path):
     assert orphan in found["images"]
     assert orphan_thumb in found["thumbs"]
 
-    #刚写入的文件不能被当成孤儿（可能正在入库）
+
     fresh = orphan_dir / ("c" * 32 + ".png")
     image.save(fresh)
     assert fresh not in library._collect_orphans()["images"]
 
-    #清理只允许动 images/ 与 thumbs/ 之下
+
     outside = tmp_path / "不该被删.png"
     image.save(outside)
     removed = library.delete_orphans([*found["images"], *found["thumbs"], outside])
@@ -307,12 +307,12 @@ def test_head_crop_magnifies_the_face(tmp_path):
     from sprite_library import SpriteLibrary
 
     library = SpriteLibrary(tmp_path / "Library")
-    #造一张"窄长"立绘，模拟真实比例（360×1154 ≈ 0.31）
+
     width, height = 360, 1154
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    draw.ellipse((120, 40, 240, 200), fill=(240, 210, 170, 255))  #头
-    draw.rectangle((130, 220, 230, 900), fill=(80, 120, 200, 255))  #身体
+    draw.ellipse((120, 40, 240, 200), fill=(240, 210, 170, 255))
+    draw.rectangle((130, 220, 230, 900), fill=(80, 120, 200, 255))
     source = tmp_path / "立绘.png"
     image.save(source)
     saved = library.import_image(source, "角色", "标签", game="作品")
@@ -323,20 +323,20 @@ def test_head_crop_magnifies_the_face(tmp_path):
     assert data, "头部特写必须能生成"
     with Image.open(_io.BytesIO(data)) as head:
         head_w, head_h = head.size
-    #裁的是顶部：宽高比应接近原图宽度，而高度约 42%
+
     assert head_h < height, "头部特写不该是整图"
-    #放大到 256 以内后，宽度应明显大于原图按 256 等比缩放的宽度
+
     full_thumb_w = round(width * min(1.0, 256 / height))
     assert head_w > full_thumb_w * 1.5, (
         f"头部特写应比整图缩略更宽（{head_w} vs {full_thumb_w}）——这才是放大的意义")
 
-    #缓存成文件：取用精灵（纯 QML、不跑服务）靠这个文件
+
     path = library.head_path(item_id)
     assert path is not None and path.is_file(), "head_path 必须落盘一个缓存文件"
     assert path.stat().st_size > 0
     assert library.head_path(item_id) == path, "第二次应直接命中缓存"
 
-    #未知 id 不能崩
+
     assert library.head_bytes("f" * 32) is None
     assert library.head_path("not-a-valid-id") is None
 
@@ -348,7 +348,7 @@ def test_head_cache_is_dropped_on_delete_and_not_returned_for_unknown_id(tmp_pat
     from sprite_library import SpriteLibrary
 
     library = SpriteLibrary(tmp_path / "Library")
-    #必须带透明边距：导入校验会拒绝"四周不透明"的图（那是截图/带背景图的特征）。
+
     image = Image.new("RGBA", (360, 1154), (0, 0, 0, 0))
     ImageDraw.Draw(image).rectangle((20, 20, 300, 1100), fill=(200, 100, 100, 255))
     source = tmp_path / "立绘.png"
@@ -357,19 +357,19 @@ def test_head_cache_is_dropped_on_delete_and_not_returned_for_unknown_id(tmp_pat
     assert saved["status"] == "imported", saved.get("reason")
     item_id = saved["id"]
 
-    #先生成缓存
+
     head = library.head_path(item_id)
     assert head is not None and head.is_file()
     assert head.name == f"{item_id}.head.png"
 
-    #② 伪造一个 DB 里不存在的 id 的缓存 → 不该被返回
+
     ghost = "0" * 32
     (library.thumbs / f"{ghost}.head.png").write_bytes(head.read_bytes())
     assert library.head_bytes(ghost) is None, "前提：DB 里没有这个 id"
     assert library.head_path(ghost) is None, (
         "命中缓存前必须校验来源：DB 里没有的条目，不能凭磁盘上的同名文件就返回")
 
-    #注意「移到回收站」这步故意不删缓存文件（`move_to_trash` 里那个
+
     thumb = library.thumbnail_path(item_id)
     assert thumb.is_file(), "前提：缩略图已生成"
 
@@ -380,7 +380,7 @@ def test_head_cache_is_dropped_on_delete_and_not_returned_for_unknown_id(tmp_pat
         "已进回收站的条目不该还能拿到头部特写 —— "
         "命中缓存前必须校验来源，否则会显示已删除条目的人脸图")
 
-    #② 清空回收站：这时两种缓存都必须真的从磁盘消失（不可逆删除）
+
     assert library.delete_permanently(item_id, False), "清空回收站应成功"
     assert library.head_path(item_id) is None
     assert not head.exists(), f"永久删除后 .head.png 仍在：{head}"
@@ -395,7 +395,7 @@ def test_orphan_scan_ignores_head_cache(tmp_path):
     from sprite_library import SpriteLibrary
 
     library = SpriteLibrary(tmp_path / "Library")
-    #同样带透明边距，否则会被"四周不透明"的导入校验拒掉
+
     image = Image.new("RGBA", (360, 1154), (0, 0, 0, 0))
     ImageDraw.Draw(image).rectangle((20, 20, 300, 1100), fill=(100, 200, 100, 255))
     source = tmp_path / "立绘.png"
@@ -407,7 +407,7 @@ def test_orphan_scan_ignores_head_cache(tmp_path):
     head = library.head_path(item_id)
     assert head is not None and head.is_file()
 
-    #把 mtime 推老，排除"太新所以跳过"这条保护，确保测的是 stem 匹配逻辑
+
     old = _time.time() - 4000
     os.utime(head, (old, old))
 
@@ -434,7 +434,7 @@ def test_wal_checkpoint_makes_copied_database_readable(tmp_path):
         connection.execute("INSERT INTO sprites VALUES (?, ?)", (f"id{index}", f"name{index}"))
     connection.commit()
 
-    #迁移前：checkpoint 把 -wal 合并回主库
+
     connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     shutil.copy2(database, target / "library.sqlite3")
 

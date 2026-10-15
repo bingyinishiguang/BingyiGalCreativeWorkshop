@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
 
-//装饰层不接收鼠标事件，避免拦截图片选择。
-//仍然显式写 data-theme，因为整套样式是「浅色默认 + [data-theme="dark"] 覆盖」结构。
+
+
 document.documentElement.setAttribute('data-theme', 'dark');
 
 let brandData = null;
@@ -23,13 +23,17 @@ let faceObserver = null;
 let activePage = 'workbench';
 let libraryItems = [];
 let librarySelected = null;
+let libraryDetailRevision = 0;
+const libraryPendingSaves = new Set();
+window.workshopActivity ||= {};
+window.workshopActivity.spriteLibrary = () => libraryPendingSaves.size > 0;
 let librarySerial = 0;
 let librarySearchTimer = null;
 let libraryTrash = false;
 let libraryPendingAction = null;
 let appSettings = null;
 
-//冰晶自绘下拉菜单
+
 const iceSelectRegistry = new WeakMap();
 let openIceSelect = null;
 
@@ -258,7 +262,7 @@ function bodyNames(character) {
   return Object.keys(character.bodies).filter(body => character.bodyCategories[body] === currentCategory());
 }
 
-//HTML 转义：把来自后端/文件名/用户输入的文本安全地放进 innerHTML。
+
 function escapeHtml(value) {
   return String(value === null || value === undefined ? '' : value)
     .replace(/&/g, '&amp;')
@@ -270,7 +274,7 @@ function escapeHtml(value) {
 
 function setStatus(message) { $('status').textContent = message; }
 
-//延迟显示空态；新预览到位时取消计时，避免切换表情时闪烁。
+
 const EMPTY_STATE_DELAY_MS = 400;
 let emptyStateTimer = 0;
 
@@ -286,7 +290,7 @@ function scheduleEmptyState() {
   if (emptyStateTimer) clearTimeout(emptyStateTimer);
   emptyStateTimer = setTimeout(() => {
     emptyStateTimer = 0;
-    //期间如果已经有预览了，就不要把空态压上去
+
     if (!$('preview').hidden) return;
     $('empty-state').hidden = false;
   }, EMPTY_STATE_DELAY_MS);
@@ -448,7 +452,7 @@ function updateSelectionSummary() {
 
 async function showPreview() {
   clearPreview();
-  //换组合 = 回到「适应窗口」：不让上一次的 100%/放大 状态把新立绘顶出画布
+
   explicitUserZoom = false;
   updateSelectionSummary();
   const serial = previewSerial;
@@ -470,7 +474,7 @@ async function showPreview() {
     image.onload = () => {
       if (serial !== previewSerial) return;
       image.hidden = false;
-      //新图到了：取消"延迟显示空态"，空态从头到尾不出现（避免空态闪现）
+
       hideEmptyState();
       $('download').disabled = false;
       $('save-library').disabled = false;
@@ -495,7 +499,7 @@ function fittedZoom() {
   return Math.min(1, (viewport.clientWidth - 50) / image.naturalWidth, (viewport.clientHeight - 50) / image.naturalHeight);
 }
 
-//新预览默认适应窗口，手动缩放只对当前预览有效。
+
 let explicitUserZoom = false;
 
 function applyZoom() {
@@ -527,8 +531,8 @@ function updateMode() {
 }
 
 function switchPage(page) {
-  //切换前校验目标页面，避免所有页面同时隐藏。
-  if (!['workbench', 'library', 'settings', 'tools', 'backgrounds', 'audio', 'roughcut', 'localtts'].includes(page)) page = 'workbench';
+
+  if (!['workbench', 'library', 'settings', 'tools', 'backgrounds', 'audio', 'roughcut', 'localtts', 'existing-draft', 'gal-story'].includes(page)) page = 'workbench';
   if (page === activePage) return;
   activePage = page;
   $('workbench-page').hidden = page !== 'workbench';
@@ -540,6 +544,8 @@ function switchPage(page) {
   $('audio-page').hidden = page !== 'audio';
   $('roughcut-page').hidden = page !== 'roughcut';
   $('localtts-page').hidden = page !== 'localtts';
+  $('existing-draft-page').hidden = page !== 'existing-draft';
+  $('gal-story-page').hidden = page !== 'gal-story';
   document.querySelector('.app-shell').classList.toggle('library-active', page === 'library');
   $('settings-button').classList.toggle('active', page === 'settings');
   if (page === 'settings') $('settings-button').setAttribute('aria-current', 'page');
@@ -554,7 +560,7 @@ function switchPage(page) {
   }
   if (page === 'library') resetLibraryView();
   else if (page === 'settings') {
-    //进设置页永远从分组列表开始，不要停在上次打开的子页面。
+
     closeSettingsPanel();
     $('settings-page').scrollTop = 0;
     loadSettings();
@@ -594,27 +600,38 @@ function renderSettings(data) {
 }
 
 async function loadSettings() {
+  if (appSettings && (autoSaveTimer || settingsSavePromise)) return;
+  const revision = settingsRevision;
   $('settings-status').textContent = '正在读取设置…';
   try {
     const response = await fetch('/api/settings');
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '设置读取失败');
-    renderSettings(data);
+    if (revision === settingsRevision) renderSettings(data);
   } catch (error) {
     $('settings-status').textContent = '读取失败：' + error.message;
   }
 }
 
 async function autoSaveSettings() {
-  //设置读取失败时禁止保存，避免用空表单覆盖已有路径。
+
   if (!appSettings) return;
-  try {
+  if (settingsSavePromise) {
+    settingsSaveQueued = true;
+    return settingsSavePromise;
+  }
+  const revision = settingsRevision;
+  const values = { singleMode: singleSaveMode(), singlePath: $('single-path').value.trim(), batchPath: $('batch-path').value.trim(), dragPath: $('drag-path').value.trim() };
+  settingsSavePromise = (async () => { try {
     const response = await fetch('/api/settings', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ singleMode: singleSaveMode(), singlePath: $('single-path').value.trim(), batchPath: $('batch-path').value.trim(), dragPath: $('drag-path').value.trim() }),
+      body: JSON.stringify(values),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '保存失败');
+    appSettings = data;
+    // A response must not replace edits made while its request was in flight.
+    if (revision !== settingsRevision) return;
     renderSettings(data);
     const moved = Number(data.movedDragFiles || 0);
     if (moved > 0) {
@@ -624,15 +641,27 @@ async function autoSaveSettings() {
       $('settings-status').textContent = '设置已保存，之后的导出会使用新路径';
     }
   } catch (error) {
-    $('settings-status').textContent = '保存失败：' + error.message;
+    if (revision === settingsRevision) $('settings-status').textContent = '保存失败：' + error.message;
+  } })();
+  try { await settingsSavePromise; }
+  finally {
+    settingsSavePromise = null;
+    if (settingsSaveQueued || revision !== settingsRevision) {
+      settingsSaveQueued = false;
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = null;
+      return autoSaveSettings();
+    }
   }
 }
 
 let autoSaveTimer = null;
+let settingsRevision = 0, settingsSavePromise = null, settingsSaveQueued = false;
 function scheduleAutoSave() {
+  settingsRevision++;
   $('settings-status').textContent = '正在保存…';
   clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(autoSaveSettings, 300);
+  autoSaveTimer = setTimeout(() => { autoSaveTimer = null; autoSaveSettings(); }, 300);
 }
 
 async function cleanupDragFolder() {
@@ -651,7 +680,7 @@ async function cleanupDragFolder() {
   }
 }
 
-//立绘库清理（未入库的孤儿文件）
+
 let libraryOrphanCount = 0;
 
 function formatBytes(bytes) {
@@ -692,7 +721,7 @@ async function scanLibraryOrphans() {
     $('library-orphan-status').textContent =
       `发现 ${libraryOrphanCount} 个未入库文件，占用 ${formatBytes(data.bytes)}`
       + `（图片 ${data.images} 个、缩略图 ${data.thumbs} 个）。确认后才会删除。`;
-    //预览前若干个名字，让用户能核对一眼
+
     const list = document.createElement('div');
     list.className = 'settings-description';
     for (const name of data.preview || []) {
@@ -732,7 +761,7 @@ async function cleanLibraryOrphans() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '清理失败');
-    //再扫一次核对结果（后端 clean 也是重新扫的，不信任前端列表）
+
     const again = await fetch('/api/library/orphans', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'scan' }),
@@ -761,7 +790,7 @@ async function openSettingsFolder(target) {
   }
 }
 
-//三种路径设置的 DOM id 映射（单张/批量/拖出），避免到处写三目表达式。
+
 const PATH_TARGETS = {
   single: { choose: 'choose-single-path', input: 'single-path' },
   batch: { choose: 'choose-batch-path', input: 'batch-path' },
@@ -822,6 +851,7 @@ function libraryImageUrl(id, thumb = false) {
 }
 
 function clearLibraryDetail() {
+  libraryDetailRevision++;
   librarySelected = null;
   $('library-detail-preview').removeAttribute('src');
   $('library-detail-content').hidden = true;
@@ -830,6 +860,8 @@ function clearLibraryDetail() {
 }
 
 function selectLibraryItem(item) {
+  libraryDetailRevision++;
+  $('library-save-edit').disabled = libraryPendingSaves.has(item.id);
   librarySelected = item;
   $('library-detail-empty').hidden = true;
   $('library-detail-content').hidden = false;
@@ -882,16 +914,17 @@ function appendLibraryItems(items) {
     face.textContent = `${item.body} / ${item.face}`;
     tile.append(visual, name, face);
     tile.onclick = () => selectLibraryItem(item);
+    tile.classList.toggle('active', librarySelected?.id === item.id);
     grid.append(tile);
   }
 }
 
-async function loadLibrary(reset = false) {
+async function loadLibrary(reset = false, preserveDetail = false) {
   const serial = reset ? ++librarySerial : librarySerial;
   if (reset) {
     libraryItems = [];
     $('library-grid').replaceChildren();
-    clearLibraryDetail();
+    if (!preserveDetail) clearLibraryDetail();
   }
   $('library-count').textContent = '正在读取…';
   $('library-more').hidden = true;
@@ -914,7 +947,7 @@ async function loadLibrary(reset = false) {
     appendLibraryItems(data.items);
     const previousTag = $('library-tag').value;
     setLibrarySelect($('library-tag'), data.tags || [], '全部标签', previousTag);
-    //作品 / 角色下拉必须以立绘库自己的清单为准。
+
     setLibrarySelect($('library-game'), data.games || [], '全部作品', $('library-game').value);
     setLibrarySelect($('library-character'), data.characters || [], '全部角色', $('library-character').value);
     $('library-count').textContent = `${data.total} 张立绘`;
@@ -929,7 +962,7 @@ async function loadLibrary(reset = false) {
   }
 }
 
-//清掉立绘库的全部筛选条件（导入成功后调用：保证新导入的图一定看得见）。
+
 function clearLibraryFilters() {
   $('library-search').value = '';
   $('library-game').value = '';
@@ -987,7 +1020,7 @@ async function revealLibraryFile() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '无法打开文件夹');
-    //打开文件夹的同时把这张图选中，方便自己复制到别处。
+
     $('library-action-status').textContent = data.selected
       ? `已打开并选中：${data.path}`
       : `已打开文件夹：${data.path}`;
@@ -998,29 +1031,27 @@ async function revealLibraryFile() {
   }
 }
 
+$('library-edit-form').addEventListener('input', () => { libraryDetailRevision++; });
+
 async function saveLibraryMetadata() {
-  if (!librarySelected || libraryTrash) return;
-  const button = $('library-save-edit');
-  button.disabled = true;
-  $('library-action-status').textContent = '正在保存资料…';
+  if (!librarySelected || libraryTrash || libraryPendingSaves.has(librarySelected.id)) return;
+  const item = librarySelected, revision = libraryDetailRevision, button = $('library-save-edit');
+  const tags = $('library-edit-tags').value.split(/[,，]/).map(value => value.trim()).filter(Boolean);
+  const values = {id:item.id,special:mode==='special',displayName:$('library-edit-name').value,note:$('library-edit-note').value,favorite:$('library-edit-favorite').checked,tags};
+  libraryPendingSaves.add(item.id);button.disabled = true;$('library-action-status').textContent = '正在保存资料…';
   try {
-    const tags = $('library-edit-tags').value.split(/[,，]/).map(value => value.trim()).filter(Boolean);
-    const response = await fetch('/api/library/update', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: librarySelected.id, special: mode === 'special',
-        displayName: $('library-edit-name').value, note: $('library-edit-note').value,
-        favorite: $('library-edit-favorite').checked, tags }),
-    });
+    const response = await fetch('/api/library/update', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '保存资料失败');
-    librarySelected = data;
-    $('library-action-status').textContent = '名称、备注、标签和收藏已保存';
-    await loadLibrary(true);
-    const refreshed = libraryItems.find(item => item.id === data.id);
-    if (refreshed) selectLibraryItem(refreshed);
+    await loadLibrary(true, true);
+    const unchanged = librarySelected?.id === item.id && libraryDetailRevision === revision && !libraryTrash;
+    if (unchanged) selectLibraryItem(libraryItems.find(value => value.id === data.id) || data);
+    $('library-action-status').textContent = librarySelected?.id === item.id && !unchanged ? '资料已保存；之后的修改仍待保存。' : '立绘「' + data.displayName + '」的名称、备注、标签和收藏已保存';
   } catch (error) {
     $('library-action-status').textContent = '保存失败：' + error.message;
-  } finally { button.disabled = false; }
+  } finally {
+    libraryPendingSaves.delete(item.id);button.disabled = libraryPendingSaves.has(librarySelected?.id);
+  }
 }
 
 function askLibraryAction(kind) {
@@ -1090,7 +1121,7 @@ async function exportCurrent() {
   if (openFolderBtn) openFolderBtn.hidden = true;
   try {
     if (!appSettings) throw new Error('设置尚未读取完成，请稍后重试');
-    //WebView2 的静默下载用户根本找不到文件。浏览器下载仍作为可选模式保留。
+
     if (appSettings.singleMode === 'folder') {
       const response = await fetch('/api/export-file', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1099,7 +1130,7 @@ async function exportCurrent() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '无法保存图片');
-      //显示实际保存路径，便于定位导出文件。
+
       const savedPath = data.path || data.dir;
       label.innerHTML = '';
       label.append(`已保存：${data.name || savedPath}`);
@@ -1255,7 +1286,7 @@ function renderBatchPicker() {
       if (!checkbox || checkbox.disabled) return;
       checkbox.checked = !checkbox.checked;
       updateBatchPickCount();
-      //同时让右侧大图跟着切换，方便"勾一张看一眼"
+
       showBatchInspector({ game, character, body, face });
     };
     const label = document.createElement('label');
@@ -1289,7 +1320,7 @@ function updateBatchPickCount() {
   const count = grid.querySelectorAll('input:checked').length;
   $('batch-pick-count').textContent = `已选 ${count} 个`;
   $('batch-add').disabled = customRunning || count === 0;
-  //卡片上的"已勾选"外观也要跟上（点图勾选、全选/清空都会走到这里）。
+
   grid.querySelectorAll('.batch-face-card').forEach(card => {
     const checkbox = card.querySelector('input[type="checkbox"]');
     card.classList.toggle('picked', Boolean(checkbox && checkbox.checked));
@@ -1392,7 +1423,7 @@ async function startCustomBatch() {
   }
 }
 
-//图库批量保存负责入库与标签，磁盘批量导出使用独立入口。
+
 let libraryBatchId = '';
 
 async function startLibraryBatch() {
@@ -1456,7 +1487,7 @@ async function pollLibraryBatch() {
   }
 }
 
-//设置首页只显示分组，详情页保留各控件绑定。
+
 const SETTINGS_PANELS = {
   'panel-single': ['单张立绘', '单张导出的落盘方式与目录。'],
   'panel-batch': ['批量输出', '自选批量合成的输出目录。'],
@@ -1491,7 +1522,7 @@ function closeSettingsPanel() {
   $('settings-page').scrollTop = 0;
 }
 
-//当前值和说明只在对应的设置详情页显示。
+
 function refreshSettingsRowValues() {
   const short = (text, limit = 46) => {
     const value = String(text || '—');
@@ -1510,7 +1541,7 @@ function refreshSettingsRowValues() {
     $('row-value-packs').textContent = packSummary || '查看已导入的素材包与扫描结果';
   }
   if ($('row-value-library-care')) {
-    //进入设置时不扫描图库，扫描由明确操作触发。
+
     $('row-value-library-care').textContent = '清理中断导入留下的未入库文件';
   }
   if ($('row-value-check')) $('row-value-check').textContent = diagnosticsSummary || '点进去开始体检';
@@ -1543,7 +1574,7 @@ if ($('open-log-path')) {
         $('log-path').value = data.logPath;
         $('log-note').textContent = `日志：${data.logPath}`;
       }
-      //复用"打开文件夹"通道：target=dir 接受任意已存在目录
+
       const dir = (logPath || '').replace(/[\\/][^\\/]*$/, '');
       const open = await fetch('/api/settings/open-folder', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1577,7 +1608,7 @@ $('nav-workbench').onclick = () => switchPage('workbench');
 $('nav-library').onclick = () => switchPage('library');
 if ($('nav-tools')) $('nav-tools').onclick = () => switchPage('tools');
 $('settings-button').onclick = () => switchPage('settings');
-//工具箱里「立绘库」那张卡片：跳到对应页面（工具卡片统一用 data-goto 声明去处）
+
 for (const card of document.querySelectorAll('.tool-card[data-goto]')) {
   card.onclick = () => switchPage(card.dataset.goto);
 }
@@ -1597,9 +1628,9 @@ $('open-single-path').onclick = () => openSettingsFolder('single');
 $('open-batch-path').onclick = () => openSettingsFolder('batch');
 $('choose-single-path').onclick = () => chooseSettingsFolder('single');
 $('choose-batch-path').onclick = () => chooseSettingsFolder('batch');
-//拖出路径与其他目录输入共享修改状态监听。
+
 for (const input of document.querySelectorAll('input[name="single-save-mode"], #single-path, #batch-path, #drag-path')) {
-  //目录选项变化后防抖保存。
+
   input.addEventListener('input', () => { syncSettingsFields(); scheduleAutoSave(); });
 }
 $('download').onclick = exportCurrent;
@@ -1661,8 +1692,8 @@ $('zoom-actual').onclick = () => setZoom(1);
 $('zoom-out').onclick = () => setZoom((zoom === 'fit' ? fittedZoom() : zoom) / 1.25);
 $('zoom-in').onclick = () => setZoom((zoom === 'fit' ? fittedZoom() : zoom) * 1.25);
 window.addEventListener('resize', () => { if (!$('preview').hidden) applyZoom(); });
-//画布尺寸变化（窗口拖拽、侧栏折叠、浏览器缩放）也要重新适应
-//只在"适应窗口"状态下跟随，用户显式放大/100% 时不打扰他。
+
+
 if (typeof ResizeObserver !== 'undefined') {
   new ResizeObserver(() => {
     if (!$('preview').hidden && !explicitUserZoom) applyZoom();
@@ -1691,7 +1722,7 @@ for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture']) {
 }
 
 updateMode();
-//在 /api/boot 报 ready 之后调用（数据类接口在就绪前会被服务端闸门挡住）。
+
 function parseCustomQueue() {
   try { customQueue = JSON.parse(sessionStorage.getItem('bingyiBatchQueue') || '[]'); } catch { customQueue = []; }
   if (!Array.isArray(customQueue)) customQueue = [];
@@ -1714,8 +1745,9 @@ async function loadCatalog() {
   if (activePage === 'library') loadLibrary(true);
 }
 
-//冰翼Gal创作工坊 设置页扩展：品牌填充 / 数据位置 / 素材包导入
+
 async function loadBrand() {
+  hydrateAboutPanel(null);
   try {
     const resp = await fetch('/api/brand');
     if (!resp.ok) return;
@@ -1723,16 +1755,16 @@ async function loadBrand() {
     if (brandData && brandData.appName) document.title = brandData.appName;
     const v = $('app-version');
       if (v && brandData && brandData.version) {
-        //versionLabel 用于内测/正式区分：留空显示「v1.0」，填「内测版」显示「v1.0 内测版」。
-        //打安装包时只改 ui/brand.json 一处，前端与安装包名可以共用这个字段。
+
+
         const label = (brandData.versionLabel || '').trim();
         v.textContent = 'v' + brandData.version + (label ? ' ' + label : '');
       }
-    //关于页同步版权与当前版本使用许可。
+
     hydrateAboutPanel(brandData);
-    //内测期限提示（过期/临近时出现）
+
     renderBetaNotice(brandData.beta);
-    //品牌数据加载后刷新关于页摘要。
+
     const aboutRow = $('row-value-about');
     if (aboutRow) {
       const rowLabel = (brandData.versionLabel || '').trim();
@@ -1742,8 +1774,8 @@ async function loadBrand() {
   } catch (e) { /*ignore*/ }
 }
 
-//关于与许可
-//由 loadBrand() 在顶层调用，保持与当前发行许可同步。
+
+
 function hydrateAboutPanel(brand) {
   const data = brand || {};
   const appLine = $('about-app-line');
@@ -1771,7 +1803,7 @@ function hydrateAboutPanel(brand) {
   if (openThird) openThird.onclick = () => openAboutFile('THIRD_PARTY_NOTICES.md');
 }
 
-//用户的原话是「内测包发给人家，他不卸载怎么办」—— 真实痛点是
+
 function renderBetaNotice(beta) {
   const bar = $('beta-notice');
   const text = $('beta-notice-text');
@@ -1790,12 +1822,12 @@ function renderBetaNotice(beta) {
     bar.hidden = true;
     return;
   }
-  text.textContent = message;          //textContent：不拼 HTML，外部配置不进 DOM 结构
+  text.textContent = message;
   bar.hidden = false;
   bar.classList.toggle('beta-notice-expired', Boolean(beta.expired));
   const close = $('beta-notice-close');
   if (close) close.onclick = () => { bar.hidden = true; };
-  //过期提醒每次启动只弹出一次。
+
   if (beta.expired && !sessionStorage.getItem('bingyiBetaNoticeShown')) {
     sessionStorage.setItem('bingyiBetaNoticeShown', '1');
     window.alert(`${mine} 已过内测期（${beta.deadline}）。\n\n`
@@ -1824,21 +1856,23 @@ function bindSettingsExtensions() {
   async function refreshDataDir() {
     try {
       const resp = await fetch('/api/data-dir');
-      if (!resp.ok) return;
       const info = await resp.json();
+      if (!resp.ok) throw new Error(info.error || '数据目录读取失败');
       if (dataDirInput) dataDirInput.value = info.current || '';
       if (dataDirNote) dataDirNote.textContent = info.custom
         ? `自定义位置；重启后生效。默认：${info.default}`
         : `默认位置（${info.frozen ? '安装版' : '开发态'}）。`;
       dataDirInfo = info;
       refreshSettingsRowValues();
-    } catch (e) { /*ignore*/ }
+    } catch (e) { if (dataDirNote) dataDirNote.textContent = '读取失败：' + e.message; }
   }
   const postDataDir = async (body) => {
     try {
       const resp = await fetch('/api/data-dir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      return await resp.json();
-    } catch (e) { return { ok: false, error: '请求失败' }; }
+      const result = await resp.json();
+      if (!resp.ok) return {ok:false,error:result.error || '数据目录操作失败'};
+      return result;
+    } catch (e) { return { ok: false, error: e.message }; }
   };
   const chooseDataDir = $('choose-data-dir');
   if (chooseDataDir) chooseDataDir.onclick = async () => {
@@ -1849,9 +1883,9 @@ function bindSettingsExtensions() {
     refreshDataDir();
   };
   const resetDataDir = $('reset-data-dir');
-  if (resetDataDir) resetDataDir.onclick = async () => { await postDataDir({ action: 'reset' }); refreshDataDir(); };
+  if (resetDataDir) resetDataDir.onclick = async () => { const result=await postDataDir({action:'reset'});if(result.ok)await refreshDataDir();else if(dataDirNote)dataDirNote.textContent='恢复失败：'+result.error; };
   const openDataDir = $('open-data-dir');
-  if (openDataDir) openDataDir.onclick = async () => { await postDataDir({ action: 'open' }); };
+  if (openDataDir) openDataDir.onclick = async () => { const result=await postDataDir({action:'open'});if(dataDirNote)dataDirNote.textContent=result.ok?'已打开数据目录。':'打开失败：'+result.error; };
 
   const packPathInput = $('pack-import-path');
   const packStatus = $('pack-import-status');
@@ -1861,7 +1895,7 @@ function bindSettingsExtensions() {
   const packProgressText = $('pack-import-progress-text');
   const packConfirm = $('pack-import-confirm');
   const packCancel = $('pack-import-cancel');
-  let packPickedPath = '';
+  let packPickedPath = '', packPreviewSerial = 0;
   function setPackBusy(busy, text) {
     if (packProgress) packProgress.hidden = !busy;
     if (packProgressText) packProgressText.textContent = text || '';
@@ -1869,6 +1903,7 @@ function bindSettingsExtensions() {
     if (packCancel) packCancel.disabled = !!busy;
   }
   function clearPackPreview() {
+    packPreviewSerial++;
     if (packPreview) { packPreview.hidden = true; packPreview.replaceChildren(); }
     if (packConfirm) packConfirm.hidden = true;
     if (packCancel) packCancel.hidden = true;
@@ -1889,7 +1924,7 @@ function bindSettingsExtensions() {
         packLinksList.append(empty);
         return;
       }
-      //p.name / p.path 来自数据目录里的「素材链接.json」，是可被手工编辑的文件。
+
       for (const pack of packs) {
         const row = document.createElement('div');
         row.className = 'pack-link-item';
@@ -1903,20 +1938,15 @@ function bindSettingsExtensions() {
         remove.textContent = isLink ? '移除' : '删除';
         remove.dataset.pack = pack.name;
         remove.onclick = async () => {
-          const packName = remove.dataset.pack;
+          if(!isLink&&!window.confirm('删除素材包「'+remove.dataset.pack+'」？该操作不可撤销，需重启程序后生效。'))return;
+          remove.disabled=true;
           try {
-            if (isLink) {
-              await fetch('/api/packs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'remove-link', name: packName }) });
-            } else {
-              if (!window.confirm('删除素材包「' + packName + '」？该操作不可撤销，需重启程序后生效。')) return;
-              const resp = await fetch('/api/packs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'delete', name: packName }) });
-              const r = await resp.json();
-              if (r && r.error && packStatus) packStatus.textContent = '删除失败：' + r.error;
-            }
-            refreshPackLinks();
-          } catch (e) { /*忽略：刷新一次即可看到真实状态*/ }
+            const resp=await fetch('/api/packs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:isLink?'remove-link':'delete',name:remove.dataset.pack})});
+            const result=await resp.json();if(!resp.ok||result.error)throw Error(result.error||'素材包操作失败');
+            if(packStatus)packStatus.textContent=isLink?'素材链接已移除。':'素材包已删除，重启后生效。';
+            await refreshPackLinks();
+          }catch(e){if(packStatus)packStatus.textContent='操作失败：'+e.message;}
+          finally{remove.disabled=false;}
         };
         row.append(name, meta, remove);
         packLinksList.append(row);
@@ -1949,12 +1979,15 @@ function bindSettingsExtensions() {
     setPackBusy(true, '正在检查压缩包…');
     if (packStatus) packStatus.textContent = '正在检查压缩包…';
     clearPackPreview();
+    const serial=packPreviewSerial;
+    if(packCancel){packCancel.hidden=false;packCancel.disabled=false;}
     try {
       const resp = await fetch('/api/packs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'preview', path }) });
       const r = await resp.json();
+      if(serial!==packPreviewSerial)return;
       if (!r.ok) {
         setPackBusy(false, '');
-        if (packStatus) packStatus.textContent = '无法导入：' + ((r.errors || []).join('；') || '未知错误');
+        if (packStatus) packStatus.textContent = '无法导入：' + (r.error || (r.errors || []).join('；') || '未知错误');
         return;
       }
       packPickedPath = path;
@@ -1980,8 +2013,9 @@ function bindSettingsExtensions() {
       if (packStatus) packStatus.textContent = '检查完成，请确认导入。';
       setPackBusy(false, '');
     } catch (e) {
+      if(serial!==packPreviewSerial)return;
       setPackBusy(false, '');
-      if (packStatus) packStatus.textContent = '检查压缩包失败。';
+      if (packStatus) packStatus.textContent = '检查压缩包失败：'+e.message;
     }
   }
   async function commitPack() {
@@ -1993,7 +2027,7 @@ function bindSettingsExtensions() {
       const r = await resp.json();
       if (!r.ok) {
         setPackBusy(false, '');
-        if (packStatus) packStatus.textContent = '导入失败：' + ((r.errors || []).join('；') || '未知错误');
+        if (packStatus) packStatus.textContent = '导入失败：' + (r.error || (r.errors || []).join('；') || '未知错误');
         return;
       }
       setPackBusy(false, '');
@@ -2004,19 +2038,22 @@ function bindSettingsExtensions() {
       scheduleRestartAfterImport(`导入成功：「${r.packName}」，共 ${r.fileCount} 个文件`);
     } catch (e) {
       setPackBusy(false, '');
-      if (packStatus) packStatus.textContent = '导入请求失败。';
+      if (packStatus) packStatus.textContent = '导入请求失败：'+e.message;
     }
   }
-  //导入生效需要重启程序（扫描只在启动阶段做）。收尾自动重启
+
   function triggerAppRestart() {
     fetch('/api/rescan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).catch(() => {});
   }
   function hasWorkInProgress() {
-    //设置改动还没落盘（300ms 防抖窗口内）。
+
     if (typeof autoSaveTimer !== 'undefined' && autoSaveTimer) return true;
-    //批量处理任务进行中：重启会把它打断。
+    if (typeof settingsSavePromise !== 'undefined' && settingsSavePromise) return true;
+
     if (typeof customRunning !== 'undefined' && customRunning) return true;
     if (typeof customJobId !== 'undefined' && customJobId) return true;
+    if (window.cutEditor?.isDirty() || window.cutEditor?.isBusy()) return true;
+    if (Object.values(window.workshopActivity || {}).some(check => check())) return true;
     return false;
   }
   function scheduleRestartAfterImport(message) {
@@ -2044,18 +2081,20 @@ function bindSettingsExtensions() {
   if (packConfirmBtn) packConfirmBtn.onclick = () => commitPack();
   const packCancelBtn = $('pack-import-cancel');
   if (packCancelBtn) packCancelBtn.onclick = () => {
-    clearPackPreview();
+    clearPackPreview();setPackBusy(false,'');
     if (packPathInput) packPathInput.value = '';
     if (packStatus) packStatus.textContent = '已取消。';
   };
   const packChoose = $('pack-import-choose');
   if (packChoose) packChoose.onclick = async () => {
+    packChoose.disabled=true;
     if (packStatus) packStatus.textContent = '正在打开文件选择框…';
     try {
       const resp = await fetch('/api/settings/choose-pack-dir', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
       });
       const r = await resp.json();
+      if (!resp.ok) throw new Error(r.error || '选择压缩包失败');
       if (r && r.path) {
         if (packPathInput) packPathInput.value = r.path;
         previewPack(r.path);
@@ -2063,8 +2102,8 @@ function bindSettingsExtensions() {
         if (packStatus) packStatus.textContent = '未选择文件。';
       }
     } catch (e) {
-      if (packStatus) packStatus.textContent = '打开文件选择框失败。';
-    }
+      if (packStatus) packStatus.textContent = '打开文件选择框失败：'+e.message;
+    } finally {packChoose.disabled=false;}
   };
 
   refreshDataDir();
@@ -2072,20 +2111,20 @@ function bindSettingsExtensions() {
   refreshScanSummary();
 }
 
-//无边框桌面窗口
+
 function setupDesktopChrome() {
   const root = document.documentElement;
   const shellFlagged = /[?&]shell=desktop/.test(location.search);
 
-  //通过 shell=desktop 标记启用桌面窗口桥接。
-  //不依赖 window.pywebview 注入，保证右上角最小化/最大化/关闭按钮始终显示。
+
+
   if (shellFlagged && !root.classList.contains('desktop-shell')) {
     root.classList.add('desktop-shell');
   }
 
   const api = window.pywebview && window.pywebview.api;
   if (!api) {
-    //② 轮询兜底：pywebview api 可能晚于页面脚本注入，每 200ms 重试，最多 10 秒。
+
     if (!window.__bgwShellPoll) {
       let tries = 0;
       window.__bgwShellPoll = setInterval(() => {
@@ -2108,12 +2147,12 @@ function setupDesktopChrome() {
 
   try {
     api.log_frontend('pywebview.api 可用; desktop-shell=' + root.classList.contains('desktop-shell') + '; shellFlagged=' + shellFlagged);
-  } catch (e) { /*诊断写入失败不影响功能*/ }
+  } catch (e) {                 }
 
-  //DWM 非客户区颜色由原生窗口接口同步。
-  //原生标题栏与页头保持一致的深色。
+
+
   const applyCaptionColor = () => {
-    try { api.set_caption_color('#102136'); } catch (e) { /*浏览器回退模式无此接口*/ }
+    try { api.set_caption_color('#102136'); } catch (e) {                 }
   };
   window.__bgwApplyCaptionColor = applyCaptionColor;
   applyCaptionColor();
@@ -2217,7 +2256,7 @@ function setupDesktopChrome() {
 window.addEventListener('pywebviewready', setupDesktopChrome);
 if (window.pywebview && window.pywebview.api) setupDesktopChrome();
 
-//冰翼取用精灵一键打开
+
 (function bindPickerLauncher() {
   const buttons = Array.from(document.querySelectorAll('#open-picker, [data-open-picker]'));
   if (!buttons.length) return;
@@ -2244,7 +2283,7 @@ if (window.pywebview && window.pywebview.api) setupDesktopChrome();
   });
 })();
 
-//立绘库：手动导入本地图片
+
 const MISSING_BOTH_TEXT =
   '作品名和角色名都是空的，你这是在玩我，还是在玩 Galgame？' +
   '你自己说说，你推的是哪部作品里的谁，一个都答不上来。' +
@@ -2289,15 +2328,15 @@ const MISSING_GAME_TEXT =
     status.textContent = `成功 ${summary.imported || 0}，重复 ${summary.duplicate || 0}，` +
       `需确认 ${summary.warning || 0}，拒绝 ${summary.rejected || 0}`;
 
-    //只有「可争议」的（警告，或已解码但透明特征不达标）才给强制入口；
-    //音频/损坏/超限没有 metrics，force 也救不了，所以按钮不出现。
+
+
     lastWarningPaths = rows.filter(r =>
       r.status === 'warning' || (r.status === 'rejected' && r.metrics && Object.keys(r.metrics).length)
     ).map(r => r.path).filter(Boolean);
-    //commit 的结果里不一定带 path，用名字兜底匹配不上时就不显示强制按钮
+
     forceRow.hidden = force || lastWarningPaths.length === 0;
 
-    try { resetLibraryView(); loadLibrary(true); } catch (e) { /*图库刷新失败不影响导入结果展示*/ }
+    try { resetLibraryView(); loadLibrary(true); } catch (e) {                     }
   }
 
   async function commit(paths, force) {
@@ -2322,7 +2361,7 @@ const MISSING_GAME_TEXT =
           paths,
           game: gameValue,
           character: characterValue,
-          //将标签字符串规整为列表后提交。
+
           tags: $('import-tags').value.split(/[,，]/).map(value => value.trim()).filter(Boolean),
           force: !!force,
         }),
@@ -2330,7 +2369,7 @@ const MISSING_GAME_TEXT =
       const data = await resp.json();
       if (!resp.ok) { status.textContent = `导入失败：${data.error || resp.status}`; return; }
       renderResults(data, !!force);
-      //导入成功后重置筛选，使新增作品与角色立即可见。
+
       if (data.imported > 0) {
         clearLibraryFilters();
         status.textContent += ' ｜ 已切到「全部作品 / 全部角色」，方便你确认新导入的图。';
@@ -2341,7 +2380,7 @@ const MISSING_GAME_TEXT =
     }
   }
 
-  //补齐必填项后清除对应的错误提示。
+
   function syncImportGate() {
     const ready = Boolean(($('import-game')?.value || '').trim())
       && Boolean(($('import-character')?.value || '').trim());
@@ -2384,7 +2423,7 @@ const MISSING_GAME_TEXT =
   };
 })();
 
-//窗口先出现，扫描在后台跑，进度来自 /api/boot 的真实计数。
+
 const BOOT_LINES = [
   '让我先醒一醒……',
   '正在把立绘一张张理出来',
@@ -2397,10 +2436,18 @@ const BOOT_PORTRAITS = [
   'boot-03-ready.png',
   'boot-04-done.png',
 ];
-//加载页最短展示时长（避免一闪而过）。
+
 const BOOT_MIN_VISIBLE_MS = 1200;
 
 let appBooted = false;
+let bootstrapPending = false;
+const bootRetry = document.createElement('button');
+bootRetry.id = 'boot-retry';
+bootRetry.type = 'button';
+bootRetry.textContent = '重新读取素材';
+bootRetry.hidden = true;
+bootRetry.onclick = () => bootstrapApp();
+$('status').after(bootRetry);
 let bootStartedAt = 0;
 let bootPollTimer = null;
 
@@ -2437,7 +2484,7 @@ async function pollBoot() {
     const response = await fetch('/api/boot', { cache: 'no-store' });
     state = await response.json();
   } catch (error) {
-    //服务还没起来：保持加载页，继续轮询
+
     state = { ready: false, phase: 0 };
   }
   const responseMs = performance.now() - started;
@@ -2448,24 +2495,31 @@ async function pollBoot() {
     return;
   }
 
-  //素材就绪后完成初始化并撤下加载页。
+
   paintBoot({ ...state, phase: 3, ready: true }, responseMs);
   $('boot-bar-fill').style.width = '100%';
   const wait = Math.max(0, BOOT_MIN_VISIBLE_MS - bootElapsed());
   setTimeout(async () => { await bootstrapApp(); finishBoot(); }, wait + 320);
 }
 
-//素材就绪后加载目录与设置，避免初始化读取空数据。
+
 async function bootstrapApp() {
-  if (appBooted) return;
-  appBooted = true;
+  if (appBooted || bootstrapPending) return;
+  bootstrapPending = true;
+  bootRetry.disabled = true;
   try {
     parseCustomQueue();
-    await loadCatalog();
-    await loadBrand();
-    await loadSettings();
+    const results = await Promise.allSettled([loadCatalog(), loadBrand(), loadSettings()]);
+    const failure = results.find(result => result.status === 'rejected');
+    if (failure) throw failure.reason;
+    appBooted = true;
+    bootRetry.hidden = true;
   } catch (error) {
     setStatus('初始化失败：' + error.message);
+    bootRetry.hidden = false;
+  } finally {
+    bootstrapPending = false;
+    bootRetry.disabled = false;
   }
 }
 
@@ -2474,7 +2528,7 @@ function startBootSequence() {
   bootPollTimer = setTimeout(pollBoot, 0);
 }
 
-//重新扫描素材
+
 (function bindRescan() {
   const button = $('rescan-assets');
   if (!button) return;
@@ -2487,7 +2541,7 @@ function startBootSequence() {
       const resp = await fetch('/api/rescan', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
       });
-      //不假设响应一定是 JSON：文本/HTML 错误页也要能读出状态码（这个教训吃过一次）。
+
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) {
         status.textContent = `清除失败：${data.error || resp.status}`;
@@ -2504,7 +2558,7 @@ function startBootSequence() {
   };
 })();
 
-//把 startup.log（含请求级日志）、扫描摘要、设置、环境与统计打成一个 zip。
+
 (function bindDiagnosticsExport() {
   const button = $('export-diagnostics');
   if (!button) return;
@@ -2527,7 +2581,7 @@ function startBootSequence() {
     }
   };
 })();
-//运行体检
+
 (function bindDiagnostics() {
   const button = $('run-diagnostics');
   if (!button) return;
@@ -2569,5 +2623,5 @@ function startBootSequence() {
 
 bindSettingsExtensions();
 initIceSelects();
-//开始轮询启动状态，数据就绪后初始化界面。
+
 startBootSequence();

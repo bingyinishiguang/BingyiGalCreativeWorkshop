@@ -1,4 +1,4 @@
-/*Batch-one regression: safe browsing, input transactions, selection and voice decisions.*/
+/*Regression: safe browsing, input transactions, selection and voice decisions.*/
 const assert=require('node:assert/strict'),fs=require('fs'),path=require('path'),e2e=require('./ui_e2e_helper.cjs');
 (async()=>{
  const out=process.argv[3];fs.mkdirSync(out,{recursive:true});
@@ -66,22 +66,22 @@ const assert=require('node:assert/strict'),fs=require('fs'),path=require('path')
   await p.locator('#cut-save').click();await p.waitForFunction(()=>document.querySelector('#cut-status').textContent==='模拟保存失败');
   assert.equal(actor(await snapshot(),0).transform.y,-180);await p.unroute('**/api/roughcut/save');
   await p.locator('#editor-undo').click();assert.deepEqual((await snapshot()).scenes,saved);checks.push('failed save retains edits and undo');
-  await p.locator('#studio-script').click();await p.locator('#script-add').click();
+  await p.evaluate(()=>{cutScript.captureBase();cutEditor.render();});await p.locator('#draft-open-legacy').click();await p.locator('#script-add').click();
   const row=i=>p.locator('#script-rows tr').nth(i),field=(i,name)=>row(i).locator(`[data-field="${name}"]`);
-  await field(0,'kind').selectOption('heroine');assert(await field(0,'voice').isChecked());
+  await field(0,'kind').selectOption('dialogue');assert(await field(0,'voice').isChecked());
   await field(0,'voice').uncheck();await field(0,'kind').selectOption('inner');assert(!(await field(0,'voice').isChecked()));
-  await field(0,'kind').selectOption('heroine');assert(!(await field(0,'voice').isChecked()));
+  await field(0,'kind').selectOption('dialogue');assert(!(await field(0,'voice').isChecked()));
   await field(0,'voice').check();await field(0,'text').fill('旧台词');await field(0,'text').press('Tab');
   const voice=await p.evaluate(()=>cutV2.audioItems().find(a=>!a.missing).id);await field(0,'audio').selectOption(voice);
   await field(0,'text').fill('新台词');await field(0,'text').press('Tab');
   assert.equal(await row(0).locator('.script-audio-warning').count(),1);
   assert.equal(await field(0,'audio').inputValue(),voice);
-  await p.locator('#script-add').click();await field(1,'kind').selectOption('heroine');await field(1,'voice').uncheck();
+  await p.locator('#script-add').click();await field(1,'kind').selectOption('dialogue');await field(1,'voice').uncheck();
   await p.locator('#script-save').click();await p.waitForFunction(()=>document.querySelector('#script-status').textContent.includes('已保存'));
   const id=(await snapshot()).id;await p.locator('#script-close').click();await p.reload();await open();
   await p.locator('#studio-project-settings').click();await p.locator('#cut-projects').selectOption(id);
   await p.waitForFunction(()=>document.querySelector('#cut-status').textContent.includes('已打开'));await p.locator('#studio-project-close').click();
-  await p.locator('#studio-script').click();await row(0).locator('.script-audio-warning').waitFor({state:'visible'});
+  await p.evaluate(()=>{cutScript.captureBase();cutEditor.render();});await p.locator('#draft-open-legacy').click();await row(0).locator('.script-audio-warning').waitFor({state:'visible'});
   assert(!(await field(1,'voice').isChecked()));await field(1,'kind').selectOption('inner');assert(!(await field(1,'voice').isChecked()));
   await p.locator('#script-reviewed').check();await p.locator('#script-build').click();
   await p.waitForFunction(()=>document.querySelector('#script-status').textContent.includes('核对旧音频'));
@@ -97,7 +97,7 @@ const assert=require('node:assert/strict'),fs=require('fs'),path=require('path')
   for(const [w,h] of [[1920,1080],[1366,768]]){await p.setViewportSize({width:w,height:h});await p.locator('#cut-sprite-tab').click();await p.screenshot({path:path.join(out,`workspace-${w}.png`)});}
   await p.locator('#studio-project-settings').click();await p.locator('#cut-new').click();await p.locator('#studio-project-close').click();
   const fresh=await snapshot();assert.equal(fresh.scenes.length,0);assert.equal(fresh.scriptPlan.rows.length,0);assert.equal(fresh.audioClips.length,0);assert.equal(fresh.textClips.length,0);
-  await p.locator('#studio-script').click();assert.equal(await p.locator('#script-rows tr').count(),0);await p.locator('#script-close').click();
+  assert(await p.locator('#draft-legacy-notice').isHidden());
   await p.locator('#studio-project-settings').click();await p.locator('#cut-projects').selectOption(id);
   await p.waitForFunction(()=>document.querySelector('#cut-status').textContent.includes('已打开'));await p.locator('#studio-project-close').click();
   const reopened=await snapshot();assert.deepEqual(reopened.scriptPlan,full.scriptPlan);assert.deepEqual(reopened.scenes,full.scenes);

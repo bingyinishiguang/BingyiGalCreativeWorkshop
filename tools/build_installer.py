@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys as _sys_boot
 
-#控制台输出使用 UTF-8，避免无法编码的字符中断构建。
+
 for _stream in (_sys_boot.stdout, _sys_boot.stderr):
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -28,7 +28,7 @@ wiz = ROOT / "brand-assets" / "inno-wizard.bmp"
 wiz_small = ROOT / "brand-assets" / "inno-wizard-small.bmp"
 ico = ROOT / "brand-assets" / "app.ico"
 
-#只有显式指定 --with-assets 才内置素材，默认构建不包含游戏资源。
+
 import sys as _sys
 
 _with_assets = ""
@@ -64,8 +64,8 @@ if _with_assets:
     print("    只能发给确定的内测者，绝不能公开上传/分发。")
     print("=" * 68)
 
-#打包防回归检查：dist 产物中不得混入素材内容（sprite-packs 目录、*.pbd、*.sinfo）
-#只有在没有显式内置素材时才执行 —— 公开版必须保持这个保护。
+
+
 dist_dir = Path(_dist_override).resolve() if _dist_override else ROOT / "dist" / app_en
 if _dist_override and not (dist_dir / (app_en+".exe")).is_file():
     raise ValueError("指定冻结版目录中没有主程序")
@@ -104,9 +104,9 @@ lines = [
     "DefaultGroupName={#MyAppName}",
     "DisableProgramGroupPage=yes",
     "DisableDirPage=no",
-    "OutputDir="+str(Path(_output_dir).resolve()) if _output_dir else "OutputDir={#SourcePath}\\..\\dist",
-    #带素材的安装包文件名必须能一眼区分：否则迟早会把"内含版权素材的内测版"
-    #当成公开版发出去（或反过来，让内测者装到没有素材的空版）。
+    "OutputDir=" + str(Path(_output_dir).resolve() if _output_dir else ROOT / "dist"),
+
+
     "OutputBaseFilename="+_output_name if _output_name else f"OutputBaseFilename={app_en}-Setup-{version}" + ("-内测版" if _assets_dir else ""),
     "Compression=lzma",
     "SolidCompression=yes",
@@ -114,11 +114,11 @@ lines = [
     "PrivilegesRequired=lowest",
 ]
 if ico.exists():
-    lines.append("SetupIconFile={#SourcePath}\\..\\brand-assets\\app.ico")
+    lines.append(f"SetupIconFile={ico}")
 if wiz.exists():
-    lines.append("WizardImageFile={#SourcePath}\\..\\brand-assets\\inno-wizard.bmp")
+    lines.append(f"WizardImageFile={wiz}")
 if wiz_small.exists():
-    lines.append("WizardSmallImageFile={#SourcePath}\\..\\brand-assets\\inno-wizard-small.bmp")
+    lines.append(f"WizardSmallImageFile={wiz_small}")
 
 lines += [
     "",
@@ -139,9 +139,9 @@ lines += [
     "Flags: ignoreversion recursesubdirs createallsubdirs",
 ]
 
-#许可与第三方声明必须随程序一起安装。
+
 for _doc in ("LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "NOTICE"):
-    lines.append(f'Source: "{{#SourcePath}}\\..\\{_doc}"; DestDir: "{{app}}"; '
+    lines.append(f'Source: "{ROOT / _doc}"; DestDir: "{{app}}"; '
                  "Flags: ignoreversion")
 
 #生成 LICENSE.txt 副本，供 Windows 直接打开许可文件。
@@ -158,15 +158,15 @@ if _license.is_file():
         print(f"[warn] 没能生成 LICENSE.txt：{_error}")
 
 if _license_txt.is_file():
-    lines.append('Source: "{#SourcePath}\\..\\LICENSE.txt"; DestDir: "{app}"; '
+    lines.append(f'Source: "{_license_txt}"; DestDir: "{{app}}"; '
                  "Flags: ignoreversion")
 else:
-    lines.append('Source: "{#SourcePath}\\..\\LICENSE"; DestDir: "{app}"; '
+    lines.append(f'Source: "{_license}"; DestDir: "{{app}}"; '
                  'DestName: "LICENSE.txt"; Flags: ignoreversion')
 
 if WV2_BOOTSTRAPPER.exists():
     lines.append(
-        'Source: "{#SourcePath}\\redist\\MicrosoftEdgeWebview2Setup.exe"; '
+        f'Source: "{WV2_BOOTSTRAPPER}"; '
         'DestDir: "{tmp}"; Flags: deleteafterinstall'
     )
 lines += [
@@ -182,13 +182,13 @@ lines += [
     "",
 ]
 
-#[Code] 段始终存在：卸载时询问是否删除本地数据（Library、设置、packs等）
+
 data_dir_name = brand.get("dataDirName", "冰翼Gal创作工坊")
 if not data_dir_name or data_dir_name in ('.','..') or any(c in data_dir_name for c in '/\\:'):
     raise ValueError('用户数据目录名称必须是单个文件夹名')
 lines += ["", "[Code]"]
 
-#const 必须置于所有 function/procedure 之前（Inno Setup Pascal Script 的硬性要求）
+
 if WV2_BOOTSTRAPPER.exists():
     lines += [
         "const",
@@ -246,6 +246,6 @@ else:
     )
 
 out = Path(_script_file).resolve() if _script_file else ROOT / "installer" / "setup.iss"
-out.parent.mkdir(exist_ok=True)
+out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text("\n".join(lines), encoding="utf-8")
 print(f"[ok] {out}")

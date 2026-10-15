@@ -71,7 +71,7 @@ def default_data_dir() -> Path:
     base = Path(appdata) if appdata else Path.home() / "AppData" / "Roaming"
     directory_name = str(brand().get("dataDirName") or APP_DIR_FALLBACK)
     current = base / directory_name
-    #旧版本数据目录继续使用，避免改名后出现空库。
+
     legacy = base / "BingyiGalWorkshop"
     if directory_name == APP_DIR_FALLBACK and not current.exists() and legacy.is_dir():
         return legacy
@@ -92,15 +92,15 @@ def _dir_writable(path: Path) -> bool:
         try:
             probe.unlink()
         except OSError:
-            #删不掉不影响"可写"的结论（并发下别人可能已先删掉），不能据此判失败。
+
             pass
         return True
     except Exception:
         return False
 
 
-#最近一次 resolve_data_dir() 是否发生了回退，以及原因。
-#消费方（服务/启动器/设置页）可以据此给出可见提示，而不是让用户面对一个空库。
+
+
 _last_fallback_reason: str = ""
 
 
@@ -120,12 +120,12 @@ def resolve_data_dir() -> Path:
     try:
         if pointer.exists():
             raw = pointer.read_text(encoding="utf-8").strip()
-            #拒绝空指针与相对路径，避免数据目录随工作目录变化。
+
             target = Path(raw) if raw else None
             if target is None or not target.is_absolute():
                 _last_fallback_reason = f"数据目录指针内容无效（{'空' if not raw else raw[:60]}），已回退默认目录"
             elif target.resolve() == default.resolve():
-                _last_fallback_reason = ""  #指针就是默认目录，不算回退
+                _last_fallback_reason = ""
                 return default
             elif _dir_writable(target):
                 return target
@@ -183,7 +183,7 @@ def build_stamp() -> dict:
     try:
         deadline = date.fromisoformat(raw)
     except ValueError:
-        #配置写坏时当作没配置，绝不能因此影响启动。
+
         return result
     days_left = (deadline - date.today()).days
     result.update({
@@ -222,7 +222,7 @@ def process_age_seconds() -> float | None:
             )
             if not ok:
                 return None
-            #FILETIME = 1601-01-01 起的 100 纳秒数；换算到 Unix 纪元要减掉这段偏移。
+
             ticks = (creation.dwHighDateTime << 32) | creation.dwLowDateTime
             created_at = ticks / 10_000_000 - 11_644_473_600
             return max(0.0, time.time() - created_at)

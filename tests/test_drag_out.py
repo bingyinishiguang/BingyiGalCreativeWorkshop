@@ -13,7 +13,7 @@ import windows_file_drag
 def drag_env(tmp_path, monkeypatch):
     data_dir = tmp_path / "工作数据"
     data_dir.mkdir()
-    #让默认拖出目录指向临时数据目录，别碰用户真实数据
+
     monkeypatch.setattr(app_paths, "resolve_data_dir", lambda: data_dir, raising=False)
     previous = windows_file_drag.DRAG_COPY_DIR
     yield data_dir, tmp_path
@@ -33,7 +33,7 @@ def test_default_dir_is_stable_dragout_folder(drag_env):
     data_dir, _ = drag_env
     directory = windows_file_drag.set_drag_dir(None)
     assert directory == data_dir / "exports" / "DragOut"
-    #结构必须稳定，且不再落在系统临时目录的"冰翼立绘拖出"里
+
     assert directory.parts[-2:] == ("exports", "DragOut")
     assert "冰翼立绘拖出" not in str(directory)
 
@@ -46,7 +46,7 @@ def test_copy_lands_in_dragout_and_stays_after_successful_drop(drag_env, tmp_pat
     assert target.parent == windows_file_drag.DRAG_COPY_DIR
     assert target.is_file()
 
-    #投放成功 → 文件必须留着（剪映按路径引用它）
+
     windows_file_drag.cleanup_drag_copy(target, dropped=True, delay_seconds=0)
     assert target.is_file(), "投放成功后不能删除拖出文件，否则剪映工程会变成媒体丢失"
 
@@ -56,7 +56,7 @@ def test_cancelled_drop_cleans_up(drag_env, tmp_path):
     source = _source_png(tmp_path)
     target = windows_file_drag.make_draggable_copy(source, "取消的立绘")
     windows_file_drag.cleanup_drag_copy(target, dropped=False, delay_seconds=0)
-    #没投出去 = 目标应用没拿到文件，应当立刻删掉
+
     assert not target.exists(), "取消的拖放没有投出去，副本应当被清掉"
 
 
@@ -69,7 +69,7 @@ def test_no_time_based_auto_cleanup(drag_env, tmp_path):
 
     old = time.time() - 48 * 60 * 60
     os.utime(target, (old, old))
-    #再复制一张，触发旧实现里的"顺手清理超过 24 小时"分支
+
     windows_file_drag.make_draggable_copy(source, "新的立绘")
     assert target.is_file(), "拖出目录不允许按时间自动清理（会毁掉剪映工程）"
 

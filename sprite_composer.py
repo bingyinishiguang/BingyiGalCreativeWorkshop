@@ -35,11 +35,11 @@ from production_api import ProductionAPI, POST_PATHS as PRODUCTION_POST_PATHS
 from txt_parser import TxtBody, TxtCharacter, TxtLibrary, compose_txt, scan_txt_library
 
 
-#记录启动阶段耗时，供本地诊断使用。
+
 _BOOT_T0 = time.perf_counter()
 _BOOT_LAST = [0.0]
 _BOOT_MARKS: list[str] = []
-#数据目录就绪前缓存日志，随后写入本地文件。
+
 _BOOT_READY = False
 
 
@@ -67,7 +67,7 @@ def _schedule_relaunch(delay_seconds: float = 0.8) -> bool:
             arguments = [sys.executable]
             if not app_paths.is_frozen():
                 arguments.append(str(Path(__file__).resolve()))
-            #保留启动参数，使重启继续使用原来的项目目录和界面模式。
+
             arguments.extend(sys.argv[1:])
             subprocess.Popen(arguments, cwd=str(Path(__file__).resolve().parent))
             spawned = True
@@ -94,7 +94,7 @@ def _machine_profile_lines() -> list[str]:
         lines.append(f"Python={platform.python_version()} 冻结态={app_paths.is_frozen()}")
     except Exception:
         pass
-    #内存总量
+
     try:
         import ctypes
 
@@ -119,7 +119,7 @@ def _machine_profile_lines() -> list[str]:
             lines.append(f"内存={total_gb:.1f} GB（可用 {avail_gb:.1f} GB）")
     except Exception:
         pass
-    #系统 DPI 缩放
+
     try:
         import ctypes
 
@@ -128,7 +128,7 @@ def _machine_profile_lines() -> list[str]:
             lines.append(f"系统缩放={dpi / 96:.2f}")
     except Exception:
         pass
-    #WebView2 运行时（主界面靠它渲染；缺失/过旧会明显拖慢或白屏）
+
     try:
         import winreg
 
@@ -147,7 +147,7 @@ def _machine_profile_lines() -> list[str]:
             lines.append("WebView2 运行时=未检测到（主键缺失，可能需要安装运行时）")
     except Exception:
         pass
-    #数据盘剩余空间（素材包会占几百 MB 到几 GB）
+
     try:
         import shutil
 
@@ -203,7 +203,7 @@ _RESERVED_NAMES = frozenset(
     + [f"COM{i}" for i in range(1, 10)]
     + [f"LPT{i}" for i in range(1, 10)]
 )
-#串行写入图库，合成并发由独立信号量限制。
+
 _LIBRARY_WRITE_LOCK = threading.Lock()
 
 _COMPOSE_SLOTS = threading.BoundedSemaphore(2)
@@ -216,7 +216,7 @@ _OPENABLE_PROJECT_FILES = frozenset({
     "README.md",
     "NOTICE",
 })
-#缓存编码后的表情预览字节，避免重复解码高分辨率图层。
+
 _PREVIEW_CACHE: "OrderedDict[tuple, bytes]" = OrderedDict()
 _PREVIEW_CACHE_LOCK = threading.Lock()
 _PREVIEW_CACHE_MAX = 96
@@ -231,7 +231,7 @@ def _diagnostics(data_dir: Path, output_root: Path, characters: dict, lime_chara
     def add(item_id: str, label: str, ok: bool, detail: str, hint: str = "") -> None:
         checks.append({"id": item_id, "label": label, "ok": bool(ok), "detail": detail, "hint": hint})
 
-    #版本与素材包形态
+
     brand = app_paths.brand()
     packs = [name for name, _path, _source in pack_import.iter_pack_roots(
         app_paths.packs_dir(), app_paths.links_file(data_dir))]
@@ -248,7 +248,7 @@ def _diagnostics(data_dir: Path, output_root: Path, characters: dict, lime_chara
     add("version", "程序版本 / 素材包形态",
         True, f"v{brand.get('version', '?')} · {variant}")
 
-    #数据目录可写（写不进去 = 立绘库、设置、导出全废）
+
     probe = data_dir / ".write-probe"
     try:
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -259,14 +259,14 @@ def _diagnostics(data_dir: Path, output_root: Path, characters: dict, lime_chara
         add("dataDir", "数据目录可写", False, f"{data_dir}（{_redact_paths(error)}）",
             "换一个可写位置，或检查杀软是否拦截了写入")
 
-    #素材扫描结果
+
     games = len(catalog)
     roles = sum(len(entry.get("characters", {})) for entry in catalog.values())
     add("catalog", "素材扫描", bool(games and roles),
         f"{games} 部作品 / {roles} 个可合成角色",
         "到设置页「素材包导入」导入素材包目录或 zip" if not (games and roles) else "")
 
-    #三个适配器各自能不能用
+
     for label, count, adapter in (
         ("PNG 内嵌坐标", len(characters), "png-position-v1"),
         ("PBD 配方", len(lime_characters), "krkr-pbd-v1"),
@@ -276,7 +276,7 @@ def _diagnostics(data_dir: Path, output_root: Path, characters: dict, lime_chara
             f"{count} 个角色" if count else "当前素材包里没有这种格式",
             "" if count else "缺少这种格式不影响其他格式使用")
 
-    #立绘库索引
+
     try:
         listed = library.list(False)
         add("library", "立绘库索引可读", True, f"{listed.get('total', 0)} 张普通立绘")
@@ -284,7 +284,7 @@ def _diagnostics(data_dir: Path, output_root: Path, characters: dict, lime_chara
         add("library", "立绘库索引可读", False, _redact_paths(error),
             "立绘库数据库可能损坏或被占用，可尝试重启程序")
 
-    #取用精灵组件（缺 PySide6 会退回旧兼容窗）
+
     try:
         import importlib.util
         has_pyside = importlib.util.find_spec("PySide6") is not None
@@ -294,7 +294,7 @@ def _diagnostics(data_dir: Path, output_root: Path, characters: dict, lime_chara
         "可用" if has_pyside else "缺少组件，会退回旧的兼容取用窗",
         "" if has_pyside else "安装完整版即可使用新精灵界面")
 
-    #拖放模块（拖进剪映的能力）
+
     try:
         import windows_file_drag  #noqa: F401
         add("drag", "拖进剪映（原生拖放）", True, "可用")
@@ -309,7 +309,7 @@ def _diagnostics(data_dir: Path, output_root: Path, characters: dict, lime_chara
         add("settings", "设置文件", True, "正常")
 
     problems = [item for item in checks if not item["ok"]]
-    #「某格式没有素材」不算故障，避免空版被报一堆红
+
     hard = [item for item in problems if not item["id"].startswith("adapter:")]
     return {
         "version": str(brand.get("version", "")),
@@ -319,7 +319,7 @@ def _diagnostics(data_dir: Path, output_root: Path, characters: dict, lime_chara
         "checks": checks,
         "problems": len(problems),
         "hardProblems": len(hard),
-        #设置页「日志与诊断包」子页面要显示日志位置，一键打开所在目录。
+
         "logPath": str(data_dir / app_paths.STARTUP_LOG_NAME),
         "summary": ("一切正常，可以正常使用" if not hard
                     else f"发现 {len(hard)} 项需要处理，详见下面清单"),
@@ -331,13 +331,13 @@ def _real_path(raw: Path) -> Path:
     text = str(raw).strip().strip('"').strip()
     if text.startswith("\\\\?\\") or text.startswith("\\\\.\\"):
         text = text[4:]
-    #UNC 管理共享：\\localhost\C$\... / \\127.0.0.1\C$\... → C:\...
+
     match = re.match(r"^\\\\[^\\]+\\([A-Za-z])\$[\\/]?(.*)$", text)
     if match:
         drive, rest = match.group(1), match.group(2)
         text = f"{drive}:\\{rest}" if rest else f"{drive}:\\"
     path = Path(text).expanduser().resolve()
-    #realpath 会把 8.3 短名、映射盘符、符号链接归一到真实位置。
+
     try:
         path = Path(os.path.realpath(path))
     except OSError:
@@ -355,7 +355,7 @@ def _reject_dangerous_source(raw: str, code_dir: Path) -> str:
         return "目录路径无法解析"
     if not source.is_dir():
         return "目录不存在或不是文件夹"
-    if source.parent == source:  #盘根，例如 D:\
+    if source.parent == source:
         return "不能直接导入整个磁盘根目录"
     windows = os.environ.get("SystemRoot", r"C:\Windows")
     for blocked in (Path(windows), Path(os.environ.get("ProgramFiles", r"C:\Program Files")),
@@ -384,8 +384,8 @@ def register_bundled_packs(data_dir: Path) -> list[str]:
     if not bundled.is_dir():
         return []
     links_path = app_paths.links_file(data_dir)
-    #清单读不出来（被手改坏/云同步截断/被杀毒锁住）时跳过内置包登记，
-    #不要在这里抛异常把启动流程打断（这是启动路径）。
+
+
     try:
         existing = {str(Path(item["path"])) for item in pack_import.load_links(links_path)}
     except ValueError as error:
@@ -395,7 +395,7 @@ def register_bundled_packs(data_dir: Path) -> list[str]:
     for child in sorted(bundled.iterdir()):
         if not child.is_dir() or child.name.startswith("."):
             continue
-        #只有真的含素材（games 下能找到 .pbd/.txt）才登记，避免登记一个空目录
+
         if not any(child.rglob("*.pbd")) and not any(child.rglob("*.txt")):
             continue
         if str(child.resolve()) in existing:
@@ -447,7 +447,7 @@ def _startup_log(message: str) -> None:
     _append_log_line("startup", message)
 
 
-#请求日志单独打标，方便设置页「导出诊断包」按级别抽取（）。
+
 def _request_log(message: str) -> None:
     _append_log_line("request", message)
 
@@ -499,7 +499,7 @@ def build_diagnostics_archive(data_dir: Path, output_root: Path, settings, catal
     settings_path = data_dir / app_paths.SETTINGS_NAME
     entries["settings.json"] = safe_text(
         lambda: settings_path.read_text(encoding="utf-8", errors="replace"))
-    #版本信息放最前面：收到诊断包时第一眼就要能看出"他用的是哪个包"
+
     brand_info = app_paths.brand()
     beta = app_paths.build_stamp()
     version_line = f"版本={brand_info.get('version')}"
@@ -729,7 +729,7 @@ def scan_characters(source_root: Path, warnings: list[str] | None = None) -> dic
             try:
                 layer = layer_from_path(path, kind)
             except Exception as error:
-                #单个坏图/缺 pos 元数据不能让整个启动失败：跳过并记录，稍后汇总给用户。
+
                 issues.append(f"{character_dir.name}/{path.name}: {error}")
                 continue
             if layer is None:
@@ -754,7 +754,7 @@ def scan_lime_poses(source_root: Path, warnings: list[str] | None = None) -> dic
             try:
                 lines = sinfo_path.read_text(encoding="utf-16").splitlines()
             except (UnicodeError, OSError) as error:
-                #现在只跳过这一个姿势，把原因记进扫描警告。
+
                 issues.append(f"{character_dir.name}/{sinfo_path.name}: 配方读取失败（需要 UTF-16 编码）：{error}")
                 continue
             dresses: dict[str, list[str]] = {}
@@ -834,7 +834,7 @@ def faces_for_body(character: Character, body: Layer) -> list[Layer]:
     return [face for face in character.faces if face.group == body.group]
 
 
-#按所需文件存在性过滤组合，不仅依赖完整元数据。
+
 
 
 def _directory_files(directory: Path, cache: dict[Path, set[str]]) -> set[str]:
@@ -884,7 +884,7 @@ def _lime_combination_available(pose: LimePose, dress_key: str, face_key: str,
                                 layer_names: dict[tuple[int, str], str | None] | None = None) -> bool:
     """检查服装和表情所需的每个图层均能解析且图片存在。"""
     available = _lime_pose_files(pose, cache)
-    if not available:  #目录都读不到时保守放行，避免把能用的组合误删
+    if not available:
         return True
     for recipe_name in [*pose.dresses.get(dress_key, ()), *pose.faces.get(face_key, ())]:
         filename = _lime_layer_filename(pose, recipe_name, layer_names)
@@ -1003,8 +1003,8 @@ def ordered_txt_faces(body: TxtBody) -> list[str]:
 
 def safe_filename(text: str, max_length: int = 160) -> str:
     cleaned = re.sub(r'[<>:"/\\|?*]', "_", text).strip().rstrip(".")
-    #Windows 保留设备名不能当文件名（CON/PRN/AUX/NUL/COM1-9/LPT1-9），
-    #带扩展名也不行（CON.png 同样打不开），所以按主干名判断并加前缀。
+
+
     if cleaned and cleaned.split(".")[0].upper() in _RESERVED_NAMES:
         cleaned = "_" + cleaned
     return (cleaned[:max_length].rstrip(". ") or "未命名")
@@ -1023,7 +1023,7 @@ def web_catalog(characters: dict[str, Character], lime_characters: dict[str, lis
     """生成作品、角色与组合清单；existing_only 时过滤缺失图片。"""
     policy = policy or IsolationPolicy()
     result: dict[str, dict] = {}
-    #一次 catalog 构建共用一份"文件在不在"的缓存（见 _exists 的说明）。
+
     exists_cache: dict[Path, bool] = {}
     if characters:
         available = filter_png_catalog(characters, exists_cache) if existing_only else None
@@ -1158,15 +1158,15 @@ def expression_preview(game: str, character_name: str, body_name: str, face_name
         focus = (min(box[0] for box in boxes) - trim_left, min(box[1] for box in boxes) - trim_top,
                  max(box[2] for box in boxes) - trim_left, max(box[3] for box in boxes) - trim_top)
         center_x = (focus[0] + focus[2]) / 2
-        #预览覆盖头部、肩部与上半身，兼顾表情和服装差异。
+
         center_y = (focus[1] + focus[3]) / 2 + max(focus[2] - focus[0], focus[3] - focus[1]) * 0.75
         side = max(focus[2] - focus[0], focus[3] - focus[1]) * 3.2
     else:
-        #拿不到表情图层框时的兜底：取上半身，而不是取脸部大小。
+
         center_x = trimmed.width / 2
         center_y = trimmed.height * 0.26
         side = min(trimmed.width, trimmed.height) * 0.7
-    #至少给到"画布宽度的 45%"或"可见高度的 45%" —— 太小的裁切必然只剩一张脸。
+
     side = max(side, trimmed.width * 0.45, trimmed.height * 0.45)
     side = max(64, min(side, trimmed.width, trimmed.height))
     left = max(0, min(trimmed.width - side, center_x - side / 2))
@@ -1201,7 +1201,7 @@ def validate_custom_batch(items: object, catalog: dict, *, limit: int = 500,
             raise ValueError("批量清单包含重复组合")
         seen.add(key)
         record = dict(zip(("game", "character", "body", "face"), key))
-        #把分区一起带上：入库要按真实分区写入，不能一律写 normal。
+
         record["category"] = category
         validated.append(record)
     return validated
@@ -1218,7 +1218,7 @@ def run_custom_batch(items: list[dict[str, str]], output: Path, job: dict, lock:
             with lock:
                 job["current"] = f"{game} / {character} / {body} / {face}"
             try:
-                #批量导出与其他合成入口共用并发限制，控制峰值内存。
+
                 with _COMPOSE_SLOTS:
                     image = web_composite(game, character, body, face, characters, lime_characters, txt_library)
                 directory = output / safe_filename(game) / safe_filename(character)
@@ -1289,7 +1289,7 @@ def run_library_batch(items: list[dict[str, str]], library: SpriteLibrary, job: 
                 job["created"] = created
                 job["duplicate"] = duplicate
                 job["errors"] = errors[-20:]
-        #清单落盘：千张级别的批量要能事后对账（哪些进了、哪些是重复）
+
         try:
             manifest_dir = library.root.parent / app_paths.BATCH_DIR_NAME
             manifest_dir.mkdir(parents=True, exist_ok=True)
@@ -1322,7 +1322,7 @@ def exports_root(code_dir: Path) -> Path:
 
 
 def save_single_export(image: Image.Image, directory: Path, character: str, body: str, face: str) -> Path:
-    #文件名长度要算上目标目录，否则长角色名 + 长导出目录会撞 MAX_PATH(260)。
+
     budget = max(40, 240 - len(str(directory)))
     stem = safe_filename(f"{character}_{body}_{face}", min(110, budget))
     destination = directory / f"{stem}_{datetime.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:6]}.png"
@@ -1348,12 +1348,12 @@ class BootState:
         self.done = 0
         self.total = 0
         self.error = ""
-        #扫描结果（就绪后才有值）
+
         self.characters: dict = {}
         self.lime_characters: dict = {}
         self.txt_library: TxtLibrary = {}
         self.policy: IsolationPolicy | None = None
-        #缩短测试等待上限，验证未就绪时返回 503。
+
         self.gate_timeout: list[float] = [8.0]
 
     def set_phase(self, phase: int, text: str) -> None:
@@ -1427,7 +1427,7 @@ def perform_scan(state: BootState) -> None:
         characters, lime_characters, txt_library = run_scan_pipeline(state, data_dir, scan_roots,
                                                                     source_root, lime_root)
         state.set_phase(2, "本地服务开好了")
-        #隔离策略损坏时回退默认策略，并在日志中记录。
+
         try:
             policy = IsolationPolicy.load(state.output_root / app_paths.ISOLATION_DECISIONS_NAME)
         except Exception as error:
@@ -1449,7 +1449,7 @@ def run_scan_pipeline(state: BootState, data_dir: Path, scan_roots: list[Path],
     characters: dict = {}
     lime_characters: dict = {}
 
-    #素材扫描：优先读缓存
+
     cached = scan_cache.load(data_dir, scan_roots)
     if cached is not None:
         (characters, lime_characters, txt_library, media_warnings, txt_warnings,
@@ -1461,7 +1461,7 @@ def run_scan_pipeline(state: BootState, data_dir: Path, scan_roots: list[Path],
         )
         state.set_progress(len(txt_library), len(txt_library))
     else:
-        #扫描逐文件容错：任何单个坏素材只影响它自己，绝不阻断启动。
+
         state.set_progress(0, 3)
         try:
             characters = scan_characters(source_root, media_warnings)
@@ -1480,7 +1480,7 @@ def run_scan_pipeline(state: BootState, data_dir: Path, scan_roots: list[Path],
             merge_txt_library(txt_library, found)
             txt_warnings.extend(warnings)
         state.set_progress(3, 3)
-        #文件统计只在重扫时计算，并随扫描缓存保存。
+
         scan_summary_roots: list[dict] = []
         for scan_root in scan_roots:
             pbd_count, txt_count, file_count = _count_scan_media(scan_root)
@@ -1491,7 +1491,7 @@ def run_scan_pipeline(state: BootState, data_dir: Path, scan_roots: list[Path],
                            media_warnings, txt_warnings, scan_summary_roots):
             _boot_mark("素材扫描完成（重新扫描并写入缓存）")
         else:
-            #写缓存失败不该影响启动，但要留下痕迹便于排查。
+
             _startup_log("素材扫描：写缓存失败（不影响使用，下次启动会重新扫描）")
             _boot_mark("素材扫描完成（重新扫描，缓存写入失败）")
 
@@ -1508,7 +1508,7 @@ def run_scan_pipeline(state: BootState, data_dir: Path, scan_roots: list[Path],
         character_count = sum(len(game) for game in txt_library.values())
         print(f"已读取 TXT 源库：{game_count} 部作品，{character_count} 个角色。")
 
-    #启动诊断：把统计写进日志（值来自重扫时的统计或缓存里存下来的，不再重复遍历）。
+
     for item in scan_summary_roots:
         _startup_log(
             f"扫描目录 {item.get('path')}：.pbd={item.get('pbd')} "
@@ -1557,8 +1557,8 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
     """启动回环 HTTP 服务；生产环境后台扫描，测试可同步准备状态。"""
     if gate_on_ready is None:
         gate_on_ready = scan_in_background
-    #缩短测试等待上限，验证未就绪时返回 503。
-    #测试里通过属性调小，避免让套件白等。
+
+
     gate_timeout = state.gate_timeout
     _boot_mark("进入界面服务准备")
     data_dir = state.data_dir
@@ -1579,8 +1579,8 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
     settings = AppSettings(data_dir)
     jobs: dict[str, dict] = {}
     jobs_lock = threading.Lock()
-    #数据就绪后才算得出来的东西（catalog 序列化、策略）放进一个可变盒子
-    #服务先监听，盒子稍后由后台线程填。
+
+
     box: dict = {"catalog": {}, "catalog_bytes": b"{}", "policy": IsolationPolicy()}
     box_lock = threading.Lock()
 
@@ -1616,11 +1616,11 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
     elif not scan_in_background:
         state.ready.set()
         build_catalog_bytes()
-    #每次启动一枚随机令牌，随 GET / 以 cookie 发给页面，POST 必须带上。
+
     session_token = secrets.token_urlsafe(32)
 
     class Handler(BaseHTTPRequestHandler):
-        #读取超时释放半开连接，避免工作线程持续积累。
+
         timeout = 30
 
         def log_message(self, _format, *_args):
@@ -1635,7 +1635,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
             except OSError:
                 self.close_connection = True
 
-        #等待素材就绪设有上限，超时返回 503 供界面重试。
+
         def _data_ready(self) -> bool:
             if not gate_on_ready:
                 return True
@@ -1653,7 +1653,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
             snapshot["catalogReady"] = bool(self._catalog())
             self.send_json(snapshot)
 
-        #记录请求方法、路径、状态与耗时，错误附带摘要。
+
         def _record_status(self, status: int) -> None:
             self._last_status = int(status)
 
@@ -1698,11 +1698,12 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
             try:
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
                 self.send_header("Content-Length", str(len(payload)))
                 self.end_headers()
                 self.wfile.write(payload)
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-                #浏览器提前断开是常态（切页/取消预览），不是错误，不能让它冒到线程栈上。
+
                 pass
 
         def do_POST(self):
@@ -1731,7 +1732,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                             "/api/rescan") and path not in PRODUCTION_POST_PATHS:
                 self.send_error(404)
                 return
-            #等待素材就绪设有上限，超时返回 503 供界面重试。
+
             early_ok = {"/api/settings", "/api/settings/open-folder", "/api/settings/choose-folder",
                         "/api/settings/choose-pack-dir", "/api/settings/cleanup-drag",
                         "/api/packs", "/api/data-dir", "/api/picker/open", "/api/rescan",
@@ -1754,9 +1755,15 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     self.send_json({"error": "本机会话校验失败，请刷新页面后重试"}, 403)
                     return
                 length = int(self.headers.get("Content-Length", "0"))
-                body_limit = 8_000_000 if path in ('/api/script/import', '/api/script/save', '/api/script/generate',
+                body_limit = 8_000_000 if path.startswith('/api/gal-story/') or path in ('/api/script/import', '/api/script/save', '/api/script/generate',
                                                  '/api/roughcut/save', '/api/roughcut/build-script', '/api/roughcut/export','/api/roughcut/rebuild-preview',
-                                                 '/api/timeline-voice/generate','/api/timeline-voice/preview') else 262144
+                                                 '/api/timeline-voice/generate','/api/timeline-voice/preview','/api/timeline-voice/jobs',
+                                                 '/api/assistant/chat','/api/assistant/pipeline',
+                                                 '/api/assistant/manuscript-preview','/api/assistant/manuscript-apply',
+                                                 '/api/assistant/normalize-subtitles',
+                                                 '/api/existing-draft/preview','/api/existing-draft/normalize','/api/existing-draft/save',
+                                                 '/api/existing-draft/chat','/api/existing-draft/progress-save','/api/existing-draft/progress-backup','/api/existing-draft/recovery-preview',
+                                                 '/api/existing-draft/character-plan','/api/voice-cleanup/preview','/api/bilingual-dialogue/start','/api/bilingual-dialogue/export','/api/bilingual-pipeline/start') else 262144
                 if not 0 < length <= body_limit:
                     raise ValueError("请求大小不正确")
                 payload = json.loads(self.rfile.read(length))
@@ -1776,7 +1783,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                         self.send_json({"ok": pack_import.remove_link(links_path, name)})
                         return
                     if action == "delete":
-                        #多包并存下删除单个作品包；只允许删 sprite-packs 的直接子目录。
+
                         name = str(payload.get("name") or "")
                         try:
                             pack_import.delete_pack(packs_dir, name)
@@ -1788,7 +1795,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                         return
                     target = str(payload.get("path") or "").strip()
                     is_zip = Path(target).suffix.lower() in pack_import.ZIP_SUFFIXES
-                    #ZIP 与目录分别校验，文件不能进入目录导入校验分支。
+
                     unsupported = pack_import.unsupported_archive_message(Path(target))
                     if unsupported:
                         self.send_json({"error": unsupported}, 400)
@@ -1799,7 +1806,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                         self.send_json({"error": guard}, 400)
                         return
                     confirm_update = bool(payload.get("confirmUpdate"))
-                    #预检（只读、不写盘）：把包内情况报告给前端，作为"确认"步骤的依据。
+
                     if action == "preview":
                         self.send_json(pack_import.analyze(target, packs_dir).as_dict())
                         return
@@ -1808,7 +1815,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                         self.send_json(analysis.as_dict(), 400)
                         return
                     if action == "copy":
-                        #zip 素材包要走 extract_zip（原子解压），不能当成目录 copytree
+
                         source = Path(analysis.source_root)
                         if source.suffix.lower() in pack_import.ZIP_SUFFIXES:
                             pack_import.extract_zip(source, packs_dir, analysis.pack_name,
@@ -1816,7 +1823,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                         else:
                             pack_import.copy_pack(source, packs_dir)
                     elif action == "link":
-                        #链接是"登记一个已解包的素材目录"，zip 得先解压才有目录可登记。
+
                         source = Path(analysis.source_root)
                         if source.suffix.lower() in pack_import.ZIP_SUFFIXES:
                             self.send_json(
@@ -1831,13 +1838,13 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     self.send_json(result, 201)
                     return
                 if path == "/api/rescan":
-                    #素材扫描结果现在是缓存的（命中缓存时启动从 4.2s 降到 0.5s）。
+
                     cleared = scan_cache.clear(data_dir)
                     _startup_log(f"用户请求重新扫描素材（清除缓存={cleared}），即将重启程序")
                     self.send_json({"cleared": cleared, "restarting": _schedule_relaunch()})
                     return
                 if path == "/api/library/import-pick":
-                    #系统多选文件框；在 HTTP 工作线程里跑 Win32 通用对话框（不能用 tkinter）。
+
                     self.send_json({"paths": file_dialog.browse_for_images()})
                     return
                 if path == "/api/library/import-commit":
@@ -1848,7 +1855,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                         raise ValueError("一次最多导入 200 张，请分批进行")
                     character = payload.get("character")
                     game = payload.get("game")
-                    #文案刻意不做预先提示（界面没有"必填"标记），不填直接打接口也会吃到同样的话。
+
                     has_game = bool(str(game or "").strip())
                     has_character = bool(str(character or "").strip())
                     if not has_game and not has_character:
@@ -1878,7 +1885,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                         try:
                             outcome = library.import_image(candidate, character, tags,
                                                            force=force, game=game)
-                        except Exception as error:  #单张失败不能拖垮整批
+                        except Exception as error:
                             _startup_log(f"导入立绘失败 {candidate.name}: {error!r}")
                             outcome = {"name": candidate.name, "status": "rejected",
                                        "reason": f"导入时出错（已记入启动日志）：{_redact_paths(error)}"}
@@ -1899,7 +1906,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     if action == "set":
                         if not app_paths.is_frozen():
                             raise ValueError("开发态数据目录固定为项目「工作数据」，安装版才可更改")
-                        #去掉首尾引号：资源管理器「复制文件地址」给的是带引号的路径，
+
                         raw = str(payload.get("path") or "").strip().strip('"').strip()
                         if not raw:
                             raise ValueError("请提供目录路径")
@@ -1919,11 +1926,11 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                             raise ValueError("这已经是当前的数据目录")
                         if target.is_relative_to(current) or current.is_relative_to(target):
                             raise ValueError("新旧数据目录不能互相包含")
-                        #只允许「新建」或「空目录」，避免把用户数据糊进一个不相干的文件夹里。
+
                         if target.is_dir() and any(target.iterdir()):
                             raise ValueError("目标文件夹不是空的，请换一个新建或空的文件夹")
                         target.mkdir(parents=True, exist_ok=True)
-                        #`library.sqlite3` 是 WAL 模式：提交只写进 `-wal`，主库可能只有 4 KB
+
                         for database in current.glob("*.sqlite3"):
                             try:
                                 with sqlite3.connect(database) as connection:
@@ -1951,13 +1958,13 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                                 "原数据目录没有被改动、指针也没切换，可以修好磁盘后重试；"
                                 "重试会自动跳过已经复制好的部分。"
                             )
-                        #复制完成后做一次存在性核对，再切指针。
+
                         missing = [item.name for item in current.iterdir() if not (target / item.name).exists()]
                         if missing:
                             raise ValueError(f"迁移校验失败：{len(missing)} 项没有复制成功（例如 {missing[0]}），"
                                              "指针未切换，原数据目录仍在使用。")
-                        #存在性不够：库文件"在"不等于"能用"。逐个打开确认 sprites 表可读，
-                        #不通过就不切指针（旧目录继续可用，用户的库不会凭空消失）。
+
+
                         for database in target.glob("*.sqlite3"):
                             try:
                                 with sqlite3.connect(database) as connection:
@@ -1988,7 +1995,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                 if path == "/api/settings/open-folder":
                     target = payload.get("target")
                     if target == "dir":
-                        #打开页面刚刚落盘的那个目录（单张导出后「打开文件夹」用）
+
                         candidate = Path(str(payload.get("path") or "")).resolve()
                         if not candidate.is_dir():
                             raise ValueError("文件夹不存在")
@@ -2033,12 +2040,12 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     self.send_json({"path": selected})
                     return
                 if path == "/api/settings/cleanup-drag":
-                    #拖出目录只在用户显式点"立即清理"时才删：剪映/PR 按路径引用素材，
+
                     removed = settings.cleanup_drag_directory()
                     self.send_json({"removed": removed, "dir": str(settings.drag_directory())})
                     return
                 if path == "/api/library/orphans":
-                    #写缩略图，最后 INSERT"，中途被杀就留下没有记录的文件。
+
                     action = str(payload.get("action") or "scan")
                     found = library._collect_orphans()
                     paths = [*found["images"], *found["thumbs"]]
@@ -2058,7 +2065,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                             "thumbs": len(found["thumbs"]),
                             "total": len(paths),
                             "bytes": _size_of(paths),
-                            #只给前 20 个名字做预览，不把上千条路径塞给前端
+
                             "preview": [item.name for item in paths[:20]],
                         })
                         return
@@ -2094,7 +2101,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     with _COMPOSE_SLOTS:
                         image = web_composite(game, character, body, face, state.characters, state.lime_characters, state.txt_library)
                         saved_path = save_single_export(image, directory, character, body, face)
-                    #"已发送到浏览器下载"，文件根本找不到）。
+
                     self.send_json({
                         "path": str(saved_path),
                         "dir": str(directory),
@@ -2103,7 +2110,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     }, 201)
                     return
                 if path == "/api/library/batch-save":
-                    #前端用 /api/library/batch-status 轮询进度。
+
                     items = validate_library_batch(payload["items"], self._catalog())
                     label = payload.get("label")
                     batch_label = label.strip()[:30] if isinstance(label, str) else ""
@@ -2146,11 +2153,11 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     category = entry["bodyCategories"][body]
                     if (category != "normal") != (payload.get("special") is True):
                         raise ValueError("请先切换到对应的界面模式")
-                    #合成 + 入库（含 PNG 编码、WebP 缩略图、哈希）整体算临界区
-                    #单个 TXT/PBD 合成就可能占 80-200 MB，不设限流时多点几下就 OOM。
+
+
                     with _COMPOSE_SLOTS:
                         image = web_composite(game, character, body, face, state.characters, state.lime_characters, state.txt_library)
-                        #这里再用一把写锁把"查重 + 插入"合成一个原子段（成本可忽略：入库很快）。
+
                         with _LIBRARY_WRITE_LOCK:
                             result = library.save(game, character, body, face, category, image)
                     self.send_json(result, 201 if result["created"] else 200)
@@ -2194,7 +2201,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                         return
                     if os.name != "nt":
                         raise ValueError("打开文件夹目前仅支持 Windows")
-                    #立绘库一个文件夹里几百上千张，只打开文件夹等于让人再翻一遍。
+
                     opened = False
                     try:
                         import subprocess
@@ -2236,7 +2243,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     self.send_json({"ok": True, "mode": mode})
                     return
                 items = validate_custom_batch(payload["items"], self._catalog())
-                #`customRunning` 只是按钮禁用，脚本/连点/轮询失败后重试都能绕过
+
                 with jobs_lock:
                     running = [key for key, value in jobs.items() if value.get("state") == "running"]
                 if running:
@@ -2249,7 +2256,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                        "current": "", "errors": [], "output": str(output)}
                 with jobs_lock:
                     jobs[job_id] = job
-                    #不立刻删是因为前端可能还要再轮询一次拿最终状态，删早了会误报「任务不存在」。
+
                     if len(jobs) > 30:
                         terminal = [key for key, value in jobs.items()
                                     if value.get("state") in ("finished", "failed") and key != job_id]
@@ -2261,7 +2268,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
             except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
                 self.send_json({"error": _redact_paths(error)}, 400)
             except Exception as error:
-                #日志保留详细异常，响应隐藏本机绝对路径。
+
                 _startup_log(f"POST {path} 失败：{error!r}")
                 self.send_json({"error": f"操作失败（原因已记入启动日志）：{_redact_paths(error)}"}, 500)
 
@@ -2272,7 +2279,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                 "brand-ribbon.png",
                 "loading-ring.png",
                 "snowflake.png",
-                #它内侧透明，可以直接套在立绘外。
+
                 "library-frame.png",
             }
             icewing_prefix = "/ui/assets/icewing/"
@@ -2328,8 +2335,8 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
             if "1" in parse_qs(parsed.query).get("special", []):
                 self.send_json({"error": "特殊界面模式已移除"}, 403)
                 return
-            #加载页与"加载页需要的东西"必须在数据就绪前就能用
-            #首页壳（含加载页）、静态资源、/api/boot、以及设置页首屏要用的几个只读接口。
+
+
             early_ok = {"/", "/api/boot", "/api/scan-summary", "/api/settings", "/api/brand",
                         "/api/data-dir", "/api/packs"}
             if parsed.path not in early_ok and not parsed.path.startswith("/ui/"):
@@ -2342,7 +2349,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
             policy = state.policy or IsolationPolicy()
             try:
                 if parsed.path == "/":
-                    #首页设置会话 cookie，同源请求携带令牌进行写入校验。
+
                     body = (app_paths.resource_root() / "ui" / "index.html").read_bytes()
                     self.send_response(200)
                     self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -2357,6 +2364,13 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                 static_files = {
                     "/ui/production.js": ("production.js", "text/javascript; charset=utf-8"),
                     "/ui/production.css": ("production.css", "text/css; charset=utf-8"),
+                    "/ui/ai_assistant.css": ("ai_assistant.css", "text/css; charset=utf-8"),
+                    "/ui/ai_assistant.js": ("ai_assistant.js", "text/javascript; charset=utf-8"),
+                    "/ui/manuscript_review.js": ("manuscript_review.js", "text/javascript; charset=utf-8"),
+                    "/ui/existing_draft.js": ("existing_draft.js", "text/javascript; charset=utf-8"),
+                    "/ui/existing_draft.css": ("existing_draft.css", "text/css; charset=utf-8"),
+                    "/ui/gal_story.js": ("gal_story.js", "text/javascript; charset=utf-8"),
+                    "/ui/gal_story.css": ("gal_story.css", "text/css; charset=utf-8"),
                     "/ui/production_v2.js": ("production_v2.js", "text/javascript; charset=utf-8"),
                     "/ui/local_tts.js": ("local_tts.js", "text/javascript; charset=utf-8"),
                     "/ui/script_voice.js": ("script_voice.js", "text/javascript; charset=utf-8"),
@@ -2380,13 +2394,14 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     "/ui/icewing-theme.css": ("icewing-theme.css", "text/css; charset=utf-8"),
                     "/ui/app.js": ("app.js", "text/javascript; charset=utf-8"),
                     "/ui/avatar.png": ("avatar.png", "image/png"),
+                    "/ui/assets/chat/dafeiyu.png": ("assets/chat/dafeiyu.png", "image/png"),
                     "/ui/mascot-icefox.png": ("mascot-icefox.png", "image/png"),
                     "/ui/avatar-fox-round.png": ("avatar-fox-round.png", "image/png"),
                     "/ui/tool-icefox.png": ("tool-icefox.png", "image/png"),
                     "/ui/favicon.png": ("favicon.png", "image/png"),
                     "/ui/signature.svg": ("signature.svg", "image/svg+xml"),
                     "/ui/brand.json": ("brand.json", "application/json; charset=utf-8"),
-                    #加载页 4 段立绘（480×720 压过）
+
                     "/ui/loading/boot-01-default.png": ("loading/boot-01-default.png", "image/png"),
                     "/ui/loading/boot-02-searching.png": ("loading/boot-02-searching.png", "image/png"),
                     "/ui/loading/boot-03-ready.png": ("loading/boot-03-ready.png", "image/png"),
@@ -2396,11 +2411,11 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     filename, content_type = static_files[parsed.path]
                     self.send_bytes((app_paths.resource_root() / "ui" / filename).read_bytes(), content_type)
                     return
-                #加载页轮询入口：必须不需要数据，否则页面永远等不到就绪。
+
                 if parsed.path == "/api/boot":
                     self._send_boot()
                     return
-                if parsed.path.startswith(("/api/backgrounds", "/api/roughcut", "/api/audio", "/api/localtts", "/api/script", "/api/composition", "/api/timeline-voice")):
+                if parsed.path.startswith(("/api/backgrounds", "/api/roughcut", "/api/audio", "/api/localtts", "/api/script", "/api/composition", "/api/timeline-voice", "/api/assistant/", "/api/gal-story/")):
                     try:
                         handled = production.get(self, parsed.path, parse_qs(parsed.query))
                     except (ValueError, TypeError) as error:
@@ -2419,8 +2434,8 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     self.send_json(settings.snapshot())
                     return
                 if parsed.path == "/api/brand":
-                    #顺带把「内测期限」状态一起给出：前端本来就会读这个接口，
-                    #合并进去省一次请求（前端启动路径越短越好）。
+
+
                     brand_payload = dict(app_paths.brand())
                     brand_payload["beta"] = app_paths.build_stamp()
                     self.send_json(brand_payload)
@@ -2464,7 +2479,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     try:
                         offset = max(0, min(int(values.get("offset", ["0"])[0]), 1000000))
                     except (ValueError, TypeError):
-                        #参数语法错误是客户端问题，应回 400 而不是落到通用 500「合成失败」。
+
                         self.send_json({"error": "offset 参数格式不正确"}, 400)
                         return
                     self.send_json(library.list(special, search, game, character, tag, favorite, trash, offset=offset))
@@ -2475,13 +2490,13 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     special = values.get("special", [""])[0] == "1"
                     trash = values.get("trash", [""])[0] == "1"
                     if values.get("size", [""])[0] == "thumb":
-                        #special / trash 必须传进去：否则普通模式能取到特殊分区的缩略图
+
                         thumbnail = library.thumbnail_bytes(item_id, special, trash)
                         if thumbnail is not None:
                             self.send_bytes(thumbnail, "image/webp", cache_seconds=3600)
                             return
                     if values.get("crop", [""])[0] == "head":
-                        #「面部模式」用的头部特写。
+
                         head = library.head_bytes(item_id, special, trash)
                         if head is not None:
                             self.send_bytes(head, "image/png", cache_seconds=3600)
@@ -2490,8 +2505,8 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     if file_path is None:
                         self.send_error(404, "Library image not found")
                         return
-                    #回退支：缩略图缺失时只能发原图，但必须带缓存头，
-                    #否则图库里每个 tile 每次重渲染都会重新下载整张全分辨率 PNG。
+
+
                     self.send_bytes(file_path.read_bytes(), "image/png", cache_seconds=600)
                     return
                 if parsed.path == "/api/expression-preview":
@@ -2546,7 +2561,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                     if missing:
                         self.send_json({"error": f"缺少参数：{'、'.join(missing)}"}, 400)
                         return
-                    #这两个端点是唯一不做存在性校验的合成入口
+
                     character_entry = (self._catalog().get(query["game"], {})
                                        .get("characters", {}).get(query["character"]))
                     if character_entry is None or query["face"] not in character_entry["bodies"].get(query["body"], []):
@@ -2578,7 +2593,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 return
             except Exception as error:
-                #日志保留详细异常，响应隐藏本机绝对路径。
+
                 _startup_log(f"合成失败：{error!r}")
                 message = f"合成失败：{_redact_paths(error)}".encode("utf-8")
                 self.send_response(500)
@@ -2587,7 +2602,7 @@ def run_web_app(code_dir: Path, state: BootState, open_browser: bool = True,
                 self.end_headers()
                 self.wfile.write(message)
 
-    Handler.gate_timeout = gate_timeout  #类属性形式暴露给每个请求实例
+    Handler.gate_timeout = gate_timeout
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     url = f"http://127.0.0.1:{server.server_port}/"
     _boot_mark("本地服务就绪")
@@ -2694,7 +2709,7 @@ def main(argv: list[str] | None = None) -> int:
     state = BootState(data_dir, output_root)
 
     if arguments.isolation_report:
-        #离线报告是命令行工具，不需要窗口：同步扫完再出清单。
+
         perform_scan(state)
         if not state.ready.wait(180):
             print("扫描超时，无法生成隔离候选清单。", file=sys.stderr)
@@ -2707,7 +2722,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"已列出 {count} 个待人工审核的完整组合：{destination}")
         return 0
 
-    #扫描在后台线程里跑，页面用 /api/boot 显示真实进度。
+
     run_web_app(code_dir, state, open_browser=not arguments.no_browser,
                 scan_in_background=not arguments.scan_first)
     return 0

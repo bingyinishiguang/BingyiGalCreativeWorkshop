@@ -25,9 +25,22 @@ POST_PATHS = {'/api/localtts/component-pick', '/api/localtts/component-select', 
               '/api/composition/preset-save', '/api/composition/preset-apply',
               '/api/composition/preset-rename', '/api/composition/preset-delete', '/api/roughcut/build-script',
               '/api/localtts/settings', '/api/localtts/test', '/api/localtts/generate', '/api/localtts/pick', '/api/localtts/start', '/api/localtts/voice-select', '/api/localtts/voices-folder',
-              '/api/timeline-voice/generate','/api/timeline-voice/preview','/api/roughcut/rebuild-preview',
+              '/api/timeline-voice/generate','/api/timeline-voice/preview','/api/timeline-voice/jobs','/api/timeline-voice/job-resume','/api/timeline-voice/job-stop','/api/roughcut/rebuild-preview',
               '/api/script/import','/api/script/pick','/api/script/preset','/api/script/generate','/api/script/stop','/api/script/take','/api/script/save',
 '/api/roughcut/column-save','/api/roughcut/column-build','/api/roughcut/column-check','/api/roughcut/overlays-check'}
+
+POST_PATHS.update('/api/assistant/' + action for action in ('settings', 'test', 'chat', 'pipeline', 'cancel'))
+POST_PATHS.update(('/api/localtts/trash', '/api/localtts/restore'))
+POST_PATHS.update('/api/assistant/' + action for action in ('manuscript-pick', 'manuscript-preview', 'manuscript-apply', 'normalize-subtitles'))
+POST_PATHS.update('/api/existing-draft/' + action for action in ('pick', 'load', 'preview', 'normalize', 'save', 'chat', 'progress-save', 'progress-backup', 'recovery-list', 'recovery-preview', 'style-info', 'style-preview', 'preset-save'))
+POST_PATHS.update('/api/existing-draft/' + action for action in ('relink-preview', 'relink-save', 'character-info', 'character-plan', 'character-save'))
+POST_PATHS.update(('/api/voice-cleanup/preview', '/api/voice-cleanup/save'))
+POST_PATHS.update('/api/bilingual-dialogue/' + action for action in ('template', 'start', 'job', 'cancel', 'export'))
+POST_PATHS.update('/api/bilingual-pipeline/' + action for action in ('start','job','cancel','save'))
+POST_PATHS.add('/api/bilingual-dialogue/pick-portraits')
+POST_PATHS.update('/api/pause-cleanup/' + action for action in ('preview', 'save'))
+POST_PATHS.update('/api/draft-publishing/' + action for action in ('options', 'pick-directory'))
+POST_PATHS.update('/api/gal-story/' + action for action in ('new', 'demo', 'parse', 'save', 'preview', 'plan', 'chat', 'export', 'draft', 'voice', 'cancel', 'pick-asset', 'pick-text'))
 
 
 class ProductionAPI:
@@ -35,17 +48,136 @@ class ProductionAPI:
         self.backgrounds = BackgroundLibrary(output_root / 'Backgrounds')
         self.audio = AudioLibrary(output_root / 'Audio')
         self.cut = RoughCut(data_dir / 'RoughCut', self.backgrounds, sprites, self.audio)
+        from ai_subtitle_assistant import SubtitleAssistant
+        self.assistant = SubtitleAssistant(data_dir / 'SubtitleAssistant', self.cut, self.audio)
+        from existing_draft import ExistingDraftEditor
+        self.existing_drafts = ExistingDraftEditor(data_dir / 'ExistingDraftEdits')
+        from draft_publish import DraftPublisher
+        self.draft_publisher = DraftPublisher(data_dir / 'DraftPublishing',self.existing_drafts)
+        from draft_video_tools import DraftVideoTools
+        from voice_cleanup import VoiceCleanup
+        self.draft_video = DraftVideoTools(self.existing_drafts)
+        from bilingual_dialogue import BilingualDialogue
+        self.bilingual_dialogue = BilingualDialogue(data_dir / 'BilingualDialogue', self.draft_video, self.assistant)
+        from pause_cleanup import PauseCleanup
+        self.pause_cleanup = PauseCleanup(data_dir / 'PauseCleanup', self.draft_video)
+        self.bilingual_dialogue.pause_cleanup = self.pause_cleanup
+        from bilingual_pipeline import BilingualPipeline
+        self.bilingual_pipeline=BilingualPipeline(self.bilingual_dialogue,self.pause_cleanup,self.publish_draft)
+        self.voice_cleanup = VoiceCleanup(data_dir / 'VoiceCleanup', self.audio, self.assistant)
         from column_workflow import ColumnWorkflow
         self.columns = ColumnWorkflow(self.cut)
         self.localtts = LocalTTS(data_dir / 'LocalTTS',self.audio)
         self.scriptvoice = ScriptVoice(data_dir / 'ScriptVoice',self.localtts)
         from timeline_voice import TimelineVoice
         self.timelinevoice=TimelineVoice(self.cut,self.localtts)
+        from timeline_voice_jobs import TimelineVoiceJobs
+        self.timelinevoicejobs=TimelineVoiceJobs(data_dir / 'TimelineVoiceJobs',self.timelinevoice)
         from composition_library import CompositionLibrary
         self.composition = CompositionLibrary(self.cut.root,sprites,recover)
+        from gal_story import GalStory
+        self.gal_story = GalStory(data_dir / 'GalStory', self.backgrounds, sprites, self.audio, self.localtts, self.assistant)
+        self.gal_story.output_options = self.cut.options
 
     def post(self, handler, path, payload):
-        if path == '/api/roughcut/column-check':
+        if path.startswith('/api/gal-story/'):
+            action = path.rsplit('/', 1)[-1]
+            story = self.gal_story
+            if action == 'preview':
+                from gal_story_render import plan, render, at_time
+                layout = plan(story, payload.get('project'))
+                index, seconds = at_time(layout, payload.get('time', 0))
+                image = render(story, layout['project'], index, seconds, layout, fades=payload.get('playing') is True)
+                image.thumbnail((960, 540), Image.Resampling.LANCZOS)
+                buffer = io.BytesIO(); image.save(buffer, 'JPEG', quality=88)
+                handler.send_bytes(buffer.getvalue(), 'image/jpeg')
+            elif action == 'plan':
+                from gal_story_render import plan
+                result = plan(story, payload.get('project'))
+                result.pop('project', None)
+                handler.send_json(result)
+            elif action == 'pick-asset':
+                paths = file_dialog.browse_for_images('选择剧情背景或透明立绘', file_filter='图片\0*.png;*.jpg;*.jpeg;*.webp\0\0')
+                handler.send_json({'item': story.import_asset({**payload, 'path': paths[0]}) if paths else None})
+            elif action == 'pick-text':
+                from script_import import document_text
+                paths = file_dialog.browse_for_images('导入剧情 TXT / DOCX', file_filter='剧情文本\0*.txt;*.docx\0\0')
+                handler.send_json({'text': document_text(Path(paths[0])) if paths else None})
+            else:
+                actions = {'new':lambda _:story.new(), 'demo':lambda _:story.demo(), 'parse':story.parse, 'save':story.save,
+                           'chat':story.chat, 'export':lambda p:story.start(p), 'draft':lambda p:story.start(p,'draft'), 'voice':lambda p:story.start(p,'voice'), 'cancel':story.cancel}
+                if action not in actions:return False
+                handler.send_json(actions[action](payload))
+        elif path.startswith('/api/draft-publishing/'):
+            if path.endswith('/options'):handler.send_json(self.draft_publisher.options(payload))
+            else:
+                from app_settings import browse_for_directory
+                handler.send_json(dict(directory=browse_for_directory('选择剪映草稿根目录',payload.get('directory')) or None))
+        elif path.startswith('/api/pause-cleanup/'):
+            action = {'preview':self.pause_cleanup.preview, 'save':self.pause_cleanup.save}.get(path.rsplit('/',1)[-1])
+            if action is None: return False
+            handler.send_json(action(payload))
+        elif path.startswith('/api/bilingual-pipeline/'):
+            action={'start':self.bilingual_pipeline.start,'job':self.bilingual_pipeline.job,'cancel':self.bilingual_pipeline.cancel,'save':self.bilingual_pipeline.save}.get(path.rsplit('/',1)[-1])
+            if action is None:return False
+            handler.send_json(action(payload))
+        elif path.startswith('/api/bilingual-dialogue/'):
+            if path.endswith('/pick-portraits'):
+                paths=file_dialog.browse_for_images('选择人物表情图片，无需重命名',file_filter='人物图片\0*.png;*.webp;*.jpg;*.jpeg\0\0')
+                handler.send_json(dict(paths=paths));return True
+            action = getattr(self.bilingual_dialogue, path.rsplit('/', 1)[-1], None)
+            if action is None: return False
+            result=action(payload)
+            if path.endswith('/export'):
+                original=self.bilingual_dialogue.jobs[payload['id']]['payload']
+                result=self.publish_draft({**original,'publish':payload.get('publish')},result)
+            handler.send_json(result)
+        elif path.startswith('/api/voice-cleanup/'):
+            action = {'preview': self.voice_cleanup.preview, 'save': self.voice_cleanup.save}.get(path.rsplit('/', 1)[-1])
+            if action is None: return False
+            handler.send_json(action(payload))
+        elif path == '/api/existing-draft/pick':
+            paths = file_dialog.browse_for_images('选择已有剪映草稿 draft_content.json', file_filter='剪映草稿\0draft_content.json\0\0')
+            handler.send_json({'path': paths[0] if paths else None})
+        elif path.startswith('/api/existing-draft/'):
+            actions = {'load':self.existing_drafts.load,'preview':self.existing_drafts.preview,'normalize':self.existing_drafts.normalize,'save':self.existing_drafts.save,
+                       'relink-preview': self.draft_video.relink_preview, 'relink-save': self.draft_video.relink_save,
+                       'character-info': self.draft_video.character_info,
+                       'character-plan': lambda value: self.draft_video.character_plan(value, self.assistant.model(value.get('modelId'))),
+                       'character-save': self.draft_video.character_save,
+                       'progress-save':self.existing_drafts.progress_save,
+                       'progress-backup':self.existing_drafts.progress_backup,
+                       'recovery-list':self.existing_drafts.recovery_list,'recovery-preview':self.existing_drafts.recovery_preview,
+                       'style-info':lambda value:self.existing_drafts.style_info(value,allow_missing_font=True),'style-preview':self.existing_drafts.style_preview,'preset-save':self.existing_drafts.preset_save,
+                       'chat':lambda value:self.existing_drafts.chat(value,self.assistant.model(value.get('modelId')))}
+            action = actions.get(path.rsplit('/',1)[-1])
+            if action is None:return False
+            result=action(payload)
+            if path.rsplit('/',1)[-1] in ('save','relink-save','character-save'):
+                result=self.publish_draft(payload,result)
+            handler.send_json(result)
+        elif path == '/api/assistant/manuscript-pick':
+            paths = file_dialog.browse_for_images('选择作者原稿 TXT', file_filter='作者原稿\0*.txt\0\0')
+            if paths:
+                from manuscript_review import validate_manuscript
+                source = Path(paths[0])
+                if source.suffix.lower() != '.txt':
+                    raise ValueError('请选择 TXT 原稿文件')
+                handler.send_json({'text': validate_manuscript(read_text(source)), 'name': source.name})
+            else:
+                handler.send_json({'text': None})
+        elif path.startswith('/api/assistant/'):
+            actions = {'settings': self.assistant.save_settings, 'test': self.assistant.test,
+                       'chat': self.assistant.chat, 'pipeline': self.assistant.pipeline,
+                       'cancel': self.assistant.cancel,
+                       'manuscript-preview': self.assistant.manuscript_preview,
+                       'manuscript-apply': self.assistant.manuscript_apply,
+                       'normalize-subtitles': self.assistant.normalize_subtitles}
+            action = actions.get(path.rsplit('/', 1)[-1])
+            if action is None:
+                return False
+            handler.send_json(action(payload))
+        elif path == '/api/roughcut/column-check':
             handler.send_json(self.columns.preflight(payload))
         elif path == '/api/roughcut/overlays-check':
             from column_workflow import normalize_overlays
@@ -65,6 +197,12 @@ class ProductionAPI:
             action=actions.get(path.rsplit('/',1)[-1])
             if not action:return False
             handler.send_json(action() or {'ok':True})
+        elif path == '/api/timeline-voice/jobs':
+            handler.send_json(self.timelinevoicejobs.start(payload))
+        elif path == '/api/timeline-voice/job-resume':
+            handler.send_json(self.timelinevoicejobs.resume(payload))
+        elif path == '/api/timeline-voice/job-stop':
+            handler.send_json(self.timelinevoicejobs.stop(payload))
         elif path == '/api/timeline-voice/generate':
             handler.send_json(self.timelinevoice.generate(payload))
         elif path == '/api/timeline-voice/preview':
@@ -118,6 +256,8 @@ class ProductionAPI:
             handler.send_json(self.localtts.test())
         elif path == '/api/localtts/generate':
             handler.send_json(self.localtts.generate(payload))
+        elif path in ('/api/localtts/trash', '/api/localtts/restore'):
+            handler.send_json(self.localtts.trash_take(payload.get('id'), path.endswith('restore')))
         elif path == '/api/localtts/start':
             handler.send_json(self.localtts.request_start(payload))
         elif path == '/api/localtts/pick':
@@ -183,12 +323,53 @@ class ProductionAPI:
             return False
         return True
 
+    def publish_draft(self,payload,result):
+        result=self.draft_publisher.publish(payload,result)
+        if result.get('published'):
+            self.cut.save_options(dict(draftDirectory=str(Path(result['path']).parent)))
+        return result
+
     def get(self, handler, path, query):
         arg = lambda name, default='': query.get(name, [default])[0]
-        if path == '/api/roughcut/columns':
+        if path == '/api/bilingual-dialogue/portrait':
+            image=self.bilingual_dialogue.portrait_preview(arg('token'),arg('sessionId'),arg('id'))
+            buffer=io.BytesIO();image.save(buffer,'PNG');handler.send_bytes(buffer.getvalue(),'image/png')
+        elif path == '/api/pause-cleanup/audio':
+            if arg('id'):
+                output = self.pause_cleanup.outputs.get(arg('id'))
+                if not output or output['sessionId'] != arg('sessionId'):
+                    raise ValueError('音频预览已失效')
+                source = Path(output['path'])
+            else:
+                source, _, _ = self.pause_cleanup.source(dict(sessionId=arg('sessionId'), audioTrackIndex=int(arg('audioTrackIndex')),audioSegmentIndex=int(arg('audioSegmentIndex'))))
+            stream_file(handler,source)
+        elif path.startswith('/api/gal-story/'):
+            action = path.rsplit('/', 1)[-1]
+            story = self.gal_story
+            if action == 'video': stream_file(handler, story.output_file(arg('id')))
+            elif action == 'subtitles': handler.send_bytes(story.subtitle_file(arg('id')).read_bytes(),'application/x-subrip; charset=utf-8')
+            elif action == 'asset':
+                image = Image.open(story.asset_file(arg('id'))).convert('RGBA')
+                image.thumbnail((480, 480), Image.Resampling.LANCZOS)
+                buffer = io.BytesIO(); image.save(buffer, 'PNG')
+                handler.send_bytes(buffer.getvalue(), 'image/png')
+            else:
+                actions = {'status':story.status, 'catalog':lambda: {'items':story.catalog()}, 'projects':story.list, 'last':story.last, 'outputs':lambda:story.outputs(arg('projectId')),
+                           'project':lambda:story.load(arg('id')), 'job':lambda:story.job(arg('id'))}
+                if action not in actions:return False
+                handler.send_json(actions[action]())
+        elif path == '/api/assistant/settings':
+            handler.send_json(self.assistant.settings())
+        elif path == '/api/assistant/job':
+            handler.send_json(self.assistant.job(arg('id')))
+        elif path == '/api/roughcut/columns':
             handler.send_json(self.columns.list())
         elif path == '/api/composition':
             handler.send_json(self.composition.list())
+        elif path == '/api/timeline-voice/jobs':
+            handler.send_json(self.timelinevoicejobs.list())
+        elif path == '/api/timeline-voice/job':
+            handler.send_json(self.timelinevoicejobs.job(arg('id')))
         elif path == '/api/timeline-voice/history':
             handler.send_json(self.timelinevoice.history(arg('target')))
         elif path == '/api/audio':
@@ -216,7 +397,7 @@ class ProductionAPI:
         elif path == '/api/localtts/models':
             handler.send_json(self.localtts.models(arg('root') or None))
         elif path == '/api/localtts/history':
-            handler.send_json(self.localtts.history())
+            handler.send_json(self.localtts.history(arg('trash')=='1'))
         elif path == '/api/localtts/media':
             stream_file(handler,self.localtts.file(arg('id')))
         elif path == '/api/roughcut/subtitle-preset':

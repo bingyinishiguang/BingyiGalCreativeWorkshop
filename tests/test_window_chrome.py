@@ -65,11 +65,12 @@ def test_chrome_log_goes_to_injected_path(tmp_path):
     assert "hwnd" in log_file.read_text(encoding="utf-8")
 
 
-def test_chrome_never_pollutes_real_diagnostic_log(tmp_path):
+def test_chrome_never_pollutes_real_diagnostic_log(tmp_path, monkeypatch):
+    monkeypatch.setattr(app_paths, 'resolve_data_dir', lambda: tmp_path / 'default-data')
     real_log = app_paths.resolve_data_dir() / app_paths.STARTUP_LOG_NAME
     before = real_log.read_text(encoding="utf-8") if real_log.exists() else None
 
-    #既覆盖「注入路径」，也覆盖「未注入路径」——后者在 pytest 进程内必须静默跳过。
+
     injected = app_launcher.WindowChromeApi(log_path=tmp_path / "chrome.log")
     injected.bind(FakeWindow())
     injected.begin_move()

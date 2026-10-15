@@ -24,7 +24,7 @@ def server(tmp_path_factory):
     original_summary = sprite_composer._write_scan_summary
     original_url = getattr(sprite_composer, "LAST_URL", None)
 
-    #测试同时重定向数据与素材路径，避免读取个人素材。
+
     packs = root / "sprite-packs"
     packs.mkdir(parents=True, exist_ok=True)
 
@@ -56,7 +56,7 @@ def server(tmp_path_factory):
     if not url:
         pytest.skip("本地服务未能在 10 秒内启动")
 
-    #地址发布后仍需等待服务就绪再发请求。
+
     ready = False
     probe = urllib.request.build_opener()
     for _ in range(100):
@@ -130,6 +130,51 @@ def _opener():
     return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
 
+def test_assistant_http_routes_and_secret_redaction(server):
+    url = server
+    opener = _opener()
+    _get(opener, url + '/')
+    status, body = _get(opener, url + '/api/assistant/settings')
+    assert status == 200
+    assert json.loads(body)['models'] == []
+    status, body = _post(opener, url + '/api/assistant/settings', {
+        'models': [{'id': 'http-assistant-test', 'name': '连接验收',
+                    'baseUrl': 'https://example.invalid/v1', 'model': 'test-model',
+                    'apiKey': 'test-private-model-key'}],
+        'activeModelId': 'http-assistant-test',
+        'translation': {'appId': 'test-app', 'secret': 'test-private-baidu-key'}})
+    assert status == 200
+    assert 'test-private' not in body
+    status, body = _get(opener, url + '/api/assistant/settings')
+    assert status == 200 and b'test-private' not in body
+    settings = json.loads(body)
+    assert settings['models'][0]['hasApiKey'] is True
+    assert settings['translation']['hasSecret'] is True
+    status, body = _get(opener, url + '/api/assistant/job?id=does-not-exist')
+    assert status == 400 and 'error' in json.loads(body)
+
+
+def test_manuscript_and_existing_draft_routes_are_live_and_authenticated(server):
+    for route in ('/api/assistant/manuscript-preview','/api/assistant/manuscript-apply',
+                  '/api/assistant/normalize-subtitles','/api/existing-draft/load',
+                  '/api/existing-draft/preview','/api/existing-draft/normalize','/api/existing-draft/save',
+                  '/api/existing-draft/chat','/api/existing-draft/progress-save',
+                  '/api/existing-draft/style-info','/api/existing-draft/style-preview','/api/existing-draft/preset-save',
+                  '/api/existing-draft/progress-backup','/api/existing-draft/recovery-list',
+                  '/api/existing-draft/recovery-preview'):
+        status,_=_post(_opener(),server+route,{})
+        assert status==403
+        opener=_opener();_get(opener,server+'/')
+        status,body=_post(opener,server+route,{})
+        if route.endswith('normalize-subtitles'):
+            assert status==200 and 'project' in json.loads(body)
+        else:
+            assert status==400 and 'error' in json.loads(body)
+    for script in ('manuscript_review.js','existing_draft.js'):
+        status,body=_get(_opener(),server+'/ui/'+script)
+        assert status==200 and len(body)>100
+
+
 def _post(opener, url, payload):
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
@@ -154,6 +199,31 @@ def test_home_page_sets_session_cookie(server):
     opener = _opener()
     status, _ = _get(opener, server + "/")
     assert status == 200
+
+
+def test_gal_story_routes_save_large_project_and_return_measured_preview(server):
+    opener=_opener();assert _get(opener,server+'/')[0]==200
+    for route in ('status','catalog','projects','last'):
+        status,body=_get(opener,server+'/api/gal-story/'+route)
+        assert status==200,body
+    status,body=_post(opener,server+'/api/gal-story/demo',{})
+    assert status==200,body
+    project=json.loads(body)
+    # Raw UTF-8 is modest; default JSON encoding expands CJK text sixfold.
+    project['originalText']='原稿保留，不因请求过长而丢失。'*6000
+    assert len(project['originalText'])<100000
+    status,body=_post(opener,server+'/api/gal-story/save',{'project':project})
+    assert status==200,body
+    status,body=_get(opener,server+'/api/gal-story/project?id='+project['id'])
+    assert status==200 and json.loads(body)['originalText']==project['originalText']
+    status,body=_post(opener,server+'/api/gal-story/plan',{'project':project})
+    assert status==200 and len(json.loads(body)['segments'])==13
+    request=urllib.request.Request(server+'/api/gal-story/preview',data=json.dumps({'project':project,'time':2}).encode(),headers={'Content-Type':'application/json'},method='POST')
+    with opener.open(request,timeout=20) as response:
+        assert response.headers['Content-Type']=='image/jpeg'
+        assert response.read(2)==b'\xff\xd8'
+    assert _post(_opener(),server+'/api/gal-story/save',{'project':project})[0]==403
+    assert _get(opener,server+'/api/gal-story/project?id=../outside')[0]==400
 
 
 def test_post_without_token_is_rejected(server):
@@ -202,7 +272,7 @@ def test_import_endpoints_exist(server):
     assert status == 400, "空路径应回 400 说明，而不是 404 或 500"
 
 
-#窗口先出现、扫描在后台跑，所以加载页必须能问进度，数据类端点必须会等闸门。
+
 
 @pytest.fixture(scope="module")
 def booting_server(tmp_path_factory):
@@ -242,11 +312,11 @@ def booting_server(tmp_path_factory):
             break
         except Exception:
             time.sleep(0.05)
-    #缩短测试等待上限，验证未就绪时返回 503。
-    #用生产的 8 秒只会让套件白等。
+
+
     state.gate_timeout[0] = 0.3
-    #测试期间替换服务地址，结束后恢复模块状态。
-    #测完还原，免得和第一个（数据就绪的）夹具串台。
+
+
     previous_url = getattr(sprite_composer, "LAST_URL", None)
     sprite_composer.LAST_URL = url
     yield url.rstrip("/"), state
@@ -273,7 +343,7 @@ def test_data_endpoints_wait_for_scan_then_503(booting_server):
     url, _state = booting_server
     opener = _opener()
     _get(opener, url + "/")
-    #闸门等 8 秒仍没数据 → 503，前端据此"稍候再试"
+
     status, body = _get(opener, url + "/api/catalog")
     assert status == 503, body[:200]
     assert json.loads(body.decode("utf-8"))["booting"] is True
@@ -328,7 +398,7 @@ def test_zip_pack_copy_import_extracts(server, tmp_path):
     import pack_import
 
     url = server
-    #测试包名使用唯一后缀，避免共享目录中的用例冲突。
+
     pack_name = f"素材包-精简-{uuid.uuid4().hex[:8]}"
     build = tmp_path / pack_name
     (build / "games" / "角色A").mkdir(parents=True)
@@ -349,12 +419,12 @@ def test_zip_pack_copy_import_extracts(server, tmp_path):
     assert extracted.is_dir(), f"zip 应该被解压成目录，实际: {extracted}"
     assert any(extracted.rglob("*.pbd")), "解压后应能看到素材文件"
 
-    #重复导入必须被拒（不能覆盖用户已有素材包）
+
     status, body = _post(opener, url + "/api/packs",
                          {"action": "copy", "path": str(archive)})
     assert status == 400, body[:200]
 
-    #ZIP 不支持目录链接，需返回明确错误。
+
     link_archive = tmp_path / f"{pack_name}-link.zip"
     link_archive.write_bytes(archive.read_bytes())
     status, body = _post(opener, url + "/api/packs",
@@ -380,7 +450,7 @@ def test_preview_missing_combination_returns_404(server):
             opener, f"{url}{path}?game=NOPE&character=x&body=y&face=z")
         assert status == 404, f"{path} 应回 404，实际 {status}: {body[:120]}"
         assert "没有这个组合" in json.loads(body)["error"]
-    #缺参数仍是 400（客户端问题）
+
     status, _body = _get(opener, f"{url}/api/preview?game=NOPE")
     assert status == 400
 
@@ -430,14 +500,14 @@ def test_library_orphans_scan_is_readonly_and_clean_only_touches_library(server,
         draw.rectangle((140, 150, 260, 600), fill=(200, 30, 30, 255))
         image.save(path)
 
-    #一张正常入库（用来证明清理不会误伤）
+
     staging = sprite_composer.app_paths.resolve_data_dir() / "staging"
     staging.mkdir(parents=True, exist_ok=True)
     good = staging / "正常.png"
     _sprite(good)
     library.import_image(good, "角色", "标签", game="作品")
 
-    #造孤儿（mtime 拨老，否则会被当成"正在写入"跳过）
+
     orphan_dir = library.images / "zz"
     orphan_dir.mkdir(parents=True, exist_ok=True)
     orphan = orphan_dir / ("a" * 32 + ".png")
@@ -463,17 +533,23 @@ def test_library_orphans_scan_is_readonly_and_clean_only_touches_library(server,
     assert not orphan.exists(), "确认后应被删除"
     assert library.list(False, limit=10)["total"] >= 1, "正常立绘不能被误删"
 
-    #未知动作应 400，而不是静默什么都不做
+
     status, _body = _post(opener, url + "/api/library/orphans", {"action": "nuke"})
     assert status == 400
 
 
-def test_project_document_open_is_whitelisted(server):
+def test_project_document_open_is_whitelisted(server, tmp_path, monkeypatch):
     url = server
     opener = _opener()
     _get(opener, url + "/")
 
-    #必须把 `os.startfile` 换掉，绝不能真的调用它。
+    documents = tmp_path / 'application'
+    documents.mkdir()
+    for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'NOTICE'):
+        (documents / name).write_bytes((app_paths.project_root() / name).read_bytes())
+    monkeypatch.setattr(app_paths, 'project_root', lambda: documents)
+
+
     opened: list[str] = []
     original_startfile = sprite_composer.os.startfile
     sprite_composer.os.startfile = lambda path: opened.append(str(path))
@@ -492,12 +568,12 @@ def test_project_document_open_is_whitelisted(server):
                                      {"target": "app-file", "name": name})
                 assert status == 200, f"{name} 应能打开：{status} {body[:200]}"
                 assert len(opened) == before + 1, f"{name} 应触发一次打开动作"
-                #必须落到项目根目录下的这个文件本身
+
                 target = Path(opened[-1]).resolve()
                 assert target == (app_paths.project_root() / name).resolve(), \
                     f"{name} 打开了错误的路径：{target}"
 
-            #必须全部拒绝（含路径穿越、绝对路径、子目录、非白名单文件）
+
             for bad in ("../../sprite_composer.py", "..\\..\\sprite_composer.py",
                         "C:\\Windows\\win.ini", "sprite_composer.py", "",
                         "LICENSE/../ui/brand.json", "/etc/passwd", "ui/brand.json"):
@@ -549,3 +625,23 @@ def test_draft_folder_picker_cancel_returns_empty_path(server, monkeypatch):
     _get(opener, server + "/")
     status, body = _post(opener, server + "/api/settings/choose-folder", {"target": "draft"})
     assert status == 200 and json.loads(body)["path"] == ""
+
+
+def test_native_file_picker_failure_is_reported(server, monkeypatch):
+    import file_dialog
+    def fail(*args, **kwargs):
+        raise ValueError('选择的文件过多，请分批导入。')
+    monkeypatch.setattr(file_dialog, 'browse_for_images', fail)
+    opener=_opener();_get(opener,server+'/')
+    status,body=_post(opener,server+'/api/audio/pick',{})
+    assert status==400 and '文件过多' in json.loads(body)['error']
+
+
+def test_native_folder_picker_failure_is_reported(server, monkeypatch):
+    import app_settings
+    def fail(*args, **kwargs):
+        raise RuntimeError('系统文件夹选择框初始化失败。')
+    monkeypatch.setattr(app_settings,'browse_for_directory',fail)
+    opener=_opener();_get(opener,server+'/')
+    status,body=_post(opener,server+'/api/settings/choose-folder',{'target':'draft'})
+    assert status==500 and '初始化失败' in json.loads(body)['error']

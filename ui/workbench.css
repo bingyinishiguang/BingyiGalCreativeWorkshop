@@ -1,4 +1,4 @@
-/*工作台页面与对话框。*/
+
 
 /*Library*/
 
@@ -6,7 +6,7 @@
   position: relative;
   isolation: isolate;
   gap: 16px;
-  
+
   grid-template-columns: minmax(220px, 260px) minmax(330px, 1fr) minmax(240px, 368px);
   padding: 16px clamp(14px, 1.7vw, 26px) 22px;
   background:
@@ -24,7 +24,7 @@
   box-shadow: 0 0 20px rgba(62, 190, 255, 0.5);
 }
 
-/*原写法 `overflow: hidden` 覆盖了 style.css 里的 `overflow-y: auto`*/
+
 .library-filters,
 .library-results,
 .library-detail {
@@ -40,12 +40,12 @@
 }
 
 .library-results {
-  overflow: hidden;              /*结果栏由内部 .library-grid 滚动*/
+  overflow: hidden;
 }
 
 .library-filters,
 .library-detail {
-  overflow-y: auto;              
+  overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: rgba(126, 210, 255, 0.55) transparent;
@@ -130,7 +130,7 @@
   border-bottom-color: rgba(116, 201, 255, 0.22);
 }
 
-/*卡片图片区域按比例布局，避免固定高度裁切立绘。*/
+
 .library-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -255,8 +255,8 @@
 
 .library-detail-image {
   position: relative;
-  width: min(100%, 304px);   
-  aspect-ratio: 1122 / 1402;      /*与 library-frame.png 同比例，避免拉伸变形*/
+  width: min(100%, 304px);
+  aspect-ratio: 1122 / 1402;
   height: auto;
   min-height: 0;
   margin-inline: auto;
@@ -273,7 +273,7 @@
   filter: drop-shadow(0 14px 30px rgba(0, 10, 30, 0.42));
 }
 
-/*立绘落在相框的透明窗口里*/
+
 .library-detail-image > img#library-detail-preview {
   position: absolute;
   inset: 10%;
@@ -285,8 +285,8 @@
   pointer-events: none;
 }
 
-/*丢失态徽标仍然可见*/
-/*详情区相框里加一枚低调雪花，和列表页呼应（装饰层，不接收鼠标事件）*/
+
+
 .library-detail-image::before {
   content: "";
   position: absolute;
@@ -323,7 +323,7 @@
   background: rgba(9, 38, 66, 0.45);
 }
 
-/*工具入口。*/
+
 
 .tools-page {
   position: relative;
@@ -532,7 +532,7 @@
 .settings-row small,
 .settings-item small,
 .settings-page .muted {
-  color: #9cc6e0;   
+  color: #9cc6e0;
 }
 
 .settings-subpanel,
@@ -777,7 +777,7 @@ dialog.modal::before,
   }
 }
 
-/*动效与紧凑窗口。*/
+
 
 .workspace:not([hidden]),
 .library-page:not([hidden]),
@@ -861,7 +861,7 @@ dialog.modal::before,
   }
 }
 
-/*装饰资源。*/
+
 
 .app-shell,
 [data-theme="dark"] .app-shell {
@@ -912,7 +912,7 @@ dialog.modal::before,
   aspect-ratio: 1136 / 1000;
 }
 
-/*立绘用绝对定位 + 内缩放进图片区。*/
+
 .library-tile-image img {
   position: absolute;
   inset: 3%;
@@ -925,7 +925,7 @@ dialog.modal::before,
   z-index: 1;
 }
 
-/*装饰层不接收鼠标事件，避免拦截图片选择。*/
+
 .library-tile-image::after {
   content: "";
   position: absolute;
@@ -935,7 +935,7 @@ dialog.modal::before,
   height: 46px;
   z-index: 3;
   pointer-events: none;
-  opacity: 0;   
+  opacity: 0;
   background: url("/ui/assets/icewing/snowflake.png") center / contain no-repeat;
 }
 
@@ -1011,7 +1011,7 @@ dialog.modal::before,
   }
 }
 
-/*装饰层不接收鼠标事件，避免拦截图片选择。*/
+
 
 .batch-face-image {
   position: relative;

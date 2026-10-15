@@ -1,0 +1,45 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {chromium,requireBrowser}=require('./ui_e2e_helper.cjs');
+(async()=>{
+  const out=path.resolve(process.argv[3]);fs.mkdirSync(out,{recursive:true});
+  const browser=await chromium.launch({executablePath:requireBrowser(),headless:true});
+  const page=await browser.newPage({viewport:{width:1600,height:1000}}),errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  try {
+    await page.goto(process.argv[2]);await page.locator('#boot-overlay').waitFor({state:'hidden'});
+    await page.locator('#nav-tools').click();
+    const grid=await page.locator('.tools-grid').boundingBox();
+    assert(Math.abs(grid.x+grid.width/2-800)<2,'toolbox must be centered');
+    assert.equal(await page.locator('[data-open-picker] img').count(),0);
+    await page.screenshot({path:path.join(out,'toolbox.png')});
+    await page.locator('#nav-audio').click();
+    await page.locator('.audio-row').filter({hasText:'测试音频'}).click();
+    assert(await page.locator('#audio-character').isVisible());
+    await page.locator('#audio-edit-kind').selectOption('bgm');
+    assert(!(await page.locator('#audio-character').isVisible()));
+    assert(!(await page.locator('#audio-text').isVisible()));
+    assert(!(await page.locator('#audio-attach-srt').isVisible()));
+    await page.locator('#audio-work').fill('测试作品');await page.locator('#audio-tags').fill('清晨，校园');
+    await page.locator('#audio-save').click();
+    await page.waitForFunction(()=>document.querySelector('#audio-status').textContent.includes('已保存'));
+    assert(!(await page.locator('#audio-character').isVisible()));
+    await page.screenshot({path:path.join(out,'bgm.png')});
+    await page.locator('#audio-search').fill('校园');await page.locator('#audio-search').press('Tab');
+    await page.waitForFunction(()=>document.querySelector('#audio-count').textContent==='1 个音频');
+    await page.locator('.audio-row').click();assert.equal(await page.locator('#audio-work').inputValue(),'测试作品');
+    await page.locator('#audio-edit-kind').selectOption('dialogue');
+    assert.equal(await page.locator('#audio-text').inputValue(),'保留台词');
+    await page.locator('#audio-edit-kind').selectOption('effect');assert(!(await page.locator('#audio-text').isVisible()));
+    await page.locator('#settings-button').click();await page.locator('#open-localtts').click();
+    await page.locator('[data-take-action="trash"]').first().click();
+    await page.waitForFunction(()=>document.querySelector('#tts-status').textContent.includes('已移入回收站'));
+    assert.equal(await page.locator('.tts-take').count(),0);
+    await page.locator('#tts-history-trash').check();await page.locator('[data-take-action="restore"]').waitFor();
+    await page.screenshot({path:path.join(out,'voice-trash.png')});
+    await page.locator('[data-take-action="restore"]').click();
+    await page.waitForFunction(()=>document.querySelector('#tts-status').textContent.includes('已恢复'));
+    await page.locator('#tts-history-trash').uncheck();await page.locator('[data-take-action="trash"]').waitFor();
+    assert.equal(await page.locator('.tts-take').count(),1);
+    assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks:['centered toolbox','neutral picker entry','BGM and effect fields','work and tag persistence and search','dialogue retained','history trash and restore'],errors}));
+  } finally {await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

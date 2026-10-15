@@ -44,3 +44,38 @@ test('invalid volume and excessively long cues are caught before save',()=>{
   assert.equal(check(project({audioClips:[clip({volume:3})]}),items).canSave,false);
   assert.equal(check(project({audioClips:[clip({cues:[{start:0,end:1,text:'字'.repeat(2001)}]})]}),items).canSave,false);
 });
+
+const readingWarnings=count=>Array.from({length:count},(_,index)=>({text:'阅读提醒',start:index/30,duration:1/30,layout:{pages:[['一'],['二']]}}));
+
+test('display limit cannot hide a later invalid text or change the full issue counts',()=>{
+  const result=check(project({textClips:[...readingWarnings(100),{text:'',start:5,duration:1}]}));
+  assert.equal(result.issues.length,100);
+  assert.equal(result.canSave,false);assert.equal(result.canExport,false);
+  assert.equal(result.issues.find(i=>i.blocksSave).code,'text-content');
+  assert.equal(result.errorCount,1);assert.equal(result.warningCount,100);assert.equal(result.totalIssueCount,101);
+  assert.deepEqual(result.issues.filter(i=>i.level==='warning').map(i=>i.index),Array.from({length:99},(_,i)=>i));
+});
+
+test('export-only blockers remain visible after warnings while saving stays allowed',()=>{
+  const result=check(project({textClips:[...readingWarnings(100),{text:'画面以外',start:10,duration:1}]}));
+  assert.equal(result.canSave,true);assert.equal(result.canExport,false);
+  assert.equal(result.issues.find(i=>i.blocksExport).code,'coverage');
+  assert.equal(result.errorCount,1);assert.equal(result.warningCount,100);assert.equal(result.totalIssueCount,101);
+});
+
+test('a later save blocker is retained after one hundred export-only blockers',()=>{
+  const outside=Array.from({length:100},(_,index)=>({text:'画面以外',start:20+index,duration:1}));
+  const result=check(project({textClips:[...outside,{text:'',start:0,duration:1}]}));
+  assert.equal(result.issues.length,100);assert.equal(result.canSave,false);assert.equal(result.canExport,false);
+  assert.equal(result.issues.find(i=>i.blocksSave).code,'text-content');
+  assert(result.issues.find(i=>i.blocksExport));
+  assert.equal(result.errorCount,101);assert.equal(result.totalIssueCount,101);
+  assert.deepEqual(result.issues.filter(i=>i.code==='coverage').map(i=>i.index),Array.from({length:99},(_,i)=>i));
+});
+
+test('warning-only overflow keeps the original first hundred and accurate totals',()=>{
+  const result=check(project({textClips:readingWarnings(125)}));
+  assert.equal(result.canSave,true);assert.equal(result.canExport,true);
+  assert.equal(result.issues.length,100);assert.equal(result.warningCount,125);assert.equal(result.errorCount,0);assert.equal(result.totalIssueCount,125);
+  assert.deepEqual(result.issues.map(i=>i.index),Array.from({length:100},(_,i)=>i));
+});

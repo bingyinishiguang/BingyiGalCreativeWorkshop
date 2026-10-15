@@ -16,16 +16,16 @@ PNG_SUFFIX = ".png"
 ZIP_SUFFIXES = {".zip"}
 UNSUPPORTED_ARCHIVE_SUFFIXES = {".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".cab", ".iso"}
 
-#png-position-v1 坐标写在该 PNG 的注释元数据（comment）里，形如 pos,x,y,width,height。
-#必须与 sprite_composer.POSITION_RE 保持一致。
+
+
 POSITION_RE = re.compile(r"pos,(-?\d+),(-?\d+),(\d+),(\d+)")
-#纯 PNG 包（无任何 .pbd/.txt）的元数据抽检：每个角色目录最多抽几张、总共最多抽几张。
+
 PNG_POSITION_SAMPLE_PER_CHARACTER = 3
 PNG_POSITION_SAMPLE_MAX = 60
 
-#安全上限：素材包是外部来源，解压前必须知道它打算写多少。
+
 MAX_ZIP_ENTRIES = 200_000
-MAX_ZIP_TOTAL_BYTES = 12 * 1024 * 1024 * 1024  #未压缩总量上限 12 GB
+MAX_ZIP_TOTAL_BYTES = 12 * 1024 * 1024 * 1024
 _RESERVED_NAMES = frozenset(
     ["CON", "PRN", "AUX", "NUL"] + [f"COM{i}" for i in range(1, 10)] + [f"LPT{i}" for i in range(1, 10)]
 )
@@ -136,7 +136,7 @@ def inspect_zip(zip_path: Path) -> tuple[dict, list[str]]:
                 errors.append(f"解压后体积过大（{total / 1073741824:.1f} GB），拒绝解压")
             if bad:
                 errors.append(f"压缩包内含不安全路径（{len(bad)} 条），已拒绝：{bad[0]}")
-            #纯 PNG 包：抽样确认坐标确实写在 PNG 元数据里（png-position-v1）。
+
             if not errors and not (stats["pbd"] or stats["txt"]) and png_names:
                 sample = _sample_names(png_names, PNG_POSITION_SAMPLE_PER_CHARACTER, PNG_POSITION_SAMPLE_MAX)
                 stats["pngChecked"] = len(sample)
@@ -185,7 +185,7 @@ def _merge_into_existing(staging: Path, target: Path) -> None:
         for game in sorted(staged_games.iterdir()):
             if game.is_dir():
                 _replace_dir(game, target_games / game.name)
-    #其它散落内容（pack.json 等）：逐个覆盖，避免整包替换波及无关作品。
+
     for item in list(staging.iterdir()):
         if item.name == "games":
             continue
@@ -348,7 +348,7 @@ def _dir_games(root: Path) -> list[str]:
     games_dir = root / "games"
     if games_dir.is_dir():
         return sorted(child.name for child in games_dir.iterdir() if child.is_dir())
-    #没有 games 层时，把顶层目录当作作品名（兼容"直接就是角色目录"的包）。
+
     return sorted(child.name for child in root.iterdir() if child.is_dir())
 
 
@@ -384,7 +384,7 @@ def analyze(path_str: str, packs_dir: Path | None = None, *, allow_update: bool 
         result.errors.append(unsupported)
         return result
 
-    #素材包 zip：解压前先把里面的情况读一遍，不写任何东西。
+
     if path.suffix.lower() in ZIP_SUFFIXES and path.is_file():
         stats, errors = inspect_zip(path)
         result.errors.extend(errors)
@@ -402,7 +402,7 @@ def analyze(path_str: str, packs_dir: Path | None = None, *, allow_update: bool 
             return result
         if not (stats["pbd"] or stats["txt"]):
             if stats["png"] and stats["pngPositionOk"]:
-                pass  #纯 PNG 的 png-position-v1 包：坐标在 PNG 元数据里，合格。
+                pass
             elif stats["png"]:
                 result.errors.append(
                     "这个压缩包里全是图片，但抽样检查发现 PNG 里没有 pos 坐标元数据，"
@@ -483,13 +483,13 @@ def load_links(links_path: Path) -> list[dict]:
     return [item for item in data if isinstance(item, dict) and item.get("path")]
 
 
-#链接清单的读取、修改、写回整体加锁，临时文件使用唯一名称。
+
 _LINKS_LOCK = threading.Lock()
 
 
 def save_links(links_path: Path, links: list[dict]) -> None:
     links_path.parent.mkdir(parents=True, exist_ok=True)
-    #临时名带 uuid：即使有人绕过这把锁也不会互踩。
+
     temp = links_path.with_name(f"{links_path.stem}-{uuid.uuid4().hex}.tmp")
     try:
         temp.write_text(json.dumps(links, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -499,7 +499,7 @@ def save_links(links_path: Path, links: list[dict]) -> None:
 
 
 def add_link(links_path: Path, source_root: Path) -> dict:
-    #读-改-写整段加锁：否则两次导入重叠会丢条目（各自读到旧列表、后写的覆盖先写的）。
+
     with _LINKS_LOCK:
         links = load_links(links_path)
         for item in links:

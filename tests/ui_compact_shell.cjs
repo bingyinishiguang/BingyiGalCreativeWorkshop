@@ -11,6 +11,7 @@ const e2e = require('./ui_e2e_helper.cjs');
   page.on('pageerror', error => errors.push(error.message));
   const results = [];
   try {
+    await page.route('**/api/catalog', route => route.fulfill({json:{}}));
     await page.goto(process.argv[2]);
     await page.locator('#boot-overlay').waitFor({state:'hidden'});
     assert.equal(await page.title(), '冰翼Gal创作工坊');

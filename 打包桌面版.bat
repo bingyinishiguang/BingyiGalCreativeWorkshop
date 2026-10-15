@@ -14,21 +14,22 @@ if exist ".venv\Scripts\python.exe" set "PY=.venv\Scripts\python.exe"
 "%PY%" --version >nul 2>&1
 if errorlevel 1 goto :nopython
 
-echo [1/5] Installing build dependencies (pyinstaller, pywebview) ...
+echo [1/5] Installing pinned runtime and build dependencies ...
 echo       Using China mirror first, fallback to Aliyun if needed.
-"%PY%" -m pip install --upgrade --index-url https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120 --retries 10 pyinstaller pywebview
+"%PY%" -m pip install --index-url https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120 --retries 10 -r requirements-build.txt
 if errorlevel 1 (
   echo Tsinghua mirror failed, trying Aliyun mirror ...
-  "%PY%" -m pip install --upgrade --index-url https://mirrors.aliyun.com/pypi/simple/ --default-timeout=120 --retries 10 pyinstaller pywebview
+  "%PY%" -m pip install --index-url https://mirrors.aliyun.com/pypi/simple/ --default-timeout=120 --retries 10 -r requirements-build.txt
 )
 if errorlevel 1 (
   echo Mirrors failed, trying official PyPI with long timeout ...
-  "%PY%" -m pip install --upgrade --default-timeout=180 --retries 15 pyinstaller pywebview
+  "%PY%" -m pip install --default-timeout=180 --retries 15 -r requirements-build.txt
 )
 if errorlevel 1 goto :fail
 
 echo [2/5] Building brand assets (avatar / signature / icon) ...
 "%PY%" tools\build_brand_assets.py
+if errorlevel 1 goto :fail
 
 echo [3/5] Cleaning old build output ...
 if exist build rmdir /s /q build

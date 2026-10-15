@@ -32,7 +32,7 @@ class CopyPackAtomicTest(unittest.TestCase):
             packs = root / "packs"
             packs.mkdir()
 
-            #模拟复制进行到一半失败（磁盘满 / 权限 / 断电）
+
             with patch("pack_import.shutil.copytree", side_effect=OSError("磁盘已满")):
                 with self.assertRaises(OSError):
                     pack_import.copy_pack(source, packs)
@@ -116,7 +116,7 @@ class ConcurrentSaveTest(unittest.TestCase):
                     result = library.save("作品", "角色A", "校服", "a0001", "normal", image)
                     with lock:
                         outcomes.append(bool(result["created"]))
-                except Exception as error:  #兜底没生效就会走到这里
+                except Exception as error:
                     with lock:
                         errors.append(repr(error))
 

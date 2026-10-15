@@ -1,4 +1,4 @@
-//关于与许可：当前使用许可、无担保声明及白名单文档入口。
+
 const e2e = require('./ui_e2e_helper.cjs'), path = require('node:path');
 const { chromium } = e2e;
 
@@ -32,7 +32,7 @@ const { chromium } = e2e;
 
   await page.goto(process.argv[2] + '/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.app-header', { timeout: 15000 });
-  //等待品牌数据加载完成后检查关于页。
+
   await page.waitForFunction(
     () => (document.getElementById('about-app-line')?.textContent || '') !== '—',
     { timeout: 15000 });
@@ -72,7 +72,7 @@ const { chromium } = e2e;
   await page.waitForTimeout(300);
   const afterOpen = await page.textContent('#about-third-party');
 
-  //白名单安全性：直接调函数传一个任意文件名，必须被拒
+
   await page.evaluate(() => openAboutFile('../../sprite_composer.py'));
   await page.waitForTimeout(300);
   const afterEvil = await page.textContent('#about-third-party');

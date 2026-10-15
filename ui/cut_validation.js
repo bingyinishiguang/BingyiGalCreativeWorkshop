@@ -2,10 +2,20 @@
 (() => {
   function check(project,audioItems=[]) {
     const stable=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
-    const issues=[],audio=project.audioClips||[],texts=project.textClips||[];
+    const buckets=[[],[],[],[]],audio=project.audioClips||[],texts=project.textClips||[];
+    let errorCount=0,warningCount=0,totalIssueCount=0,firstSave=null,firstExport=null;
     const fps=Number(project.fps)||30;
     const visualEnd=(project.scenes||[]).reduce((sum,s)=>sum+Math.round(Number(s.duration)*fps)/fps,0);
-    const add=(code,message,kind,index,extra={})=>{if(issues.length<100)issues.push({code,message,kind,index,level:'error',blocksSave:true,blocksExport:true,...extra});};
+    const add=(code,message,kind,index,extra={})=>{
+      const issue={code,message,kind,index,level:'error',blocksSave:true,blocksExport:true,...extra};
+      const entry={issue,order:totalIssueCount++};
+      if(issue.level==='warning')warningCount++;else errorCount++;
+      if(issue.blocksSave&&!firstSave)firstSave=entry;
+      if(issue.blocksExport&&!firstExport)firstExport=entry;
+      const priority=issue.blocksSave?3:issue.blocksExport?2:issue.level==='error'?1:0;
+      //Bound display storage, while all checks still contribute to the verdict.
+      if(buckets[priority].length<100)buckets[priority].push(entry);
+    };
     const finite=value=>Number.isFinite(Number(value));
     const groups=new Map();
     audio.forEach((clip,index)=>{
@@ -33,7 +43,14 @@
       if(!String(clip.text||'').trim()||String(clip.text).length>2000)add('text-content',`文字 ${index+1}：内容不能为空且最多两千字`,'text',index);
       if(clip.start+clip.duration>visualEnd+.001)add('coverage',`文字 ${index+1}：超出画面 ${(clip.start+clip.duration-visualEnd).toFixed(2)} 秒`,'text',index,{blocksSave:false,fix:'extend'});
     });
-    return {issues,visualEnd,canSave:!issues.some(i=>i.blocksSave),canExport:!issues.some(i=>i.blocksExport)};
+    const displayed=[...buckets[3],...buckets[2],...buckets[1],...buckets[0]].slice(0,100);
+    //Both failed actions must have a visible explanation, even with mixed blockers.
+    for(const required of [firstSave,firstExport])if(required&&!displayed.includes(required)){
+      const replace=displayed.findLastIndex(entry=>entry!==firstSave&&entry!==firstExport);
+      if(replace>=0)displayed[replace]=required;
+    }
+    const issues=displayed.sort((a,b)=>a.order-b.order).map(entry=>entry.issue);
+    return {issues,visualEnd,canSave:!firstSave,canExport:!firstExport,errorCount,warningCount,totalIssueCount};
   }
   globalThis.cutValidation={check};
 })();

@@ -50,6 +50,9 @@ def normalize_dialogue(payload, audio_library, number):
                       'text':str(entry.get('text',item['text']))[:20000], 'cues':cues,
                       'subtitles':entry.get('subtitles', kind=='dialogue') is True,
                       **({'subtitleStyle':clip_style} if clip_style else {})})
+        if 'manuscript' in entry:
+            from manuscript_review import review_record
+            clips[-1]['manuscript'] = review_record(entry['manuscript'])
         from timeline_identity import metadata
         metadata(entry,clips[-1])
     style = dict(DEFAULT_STYLE)
@@ -99,7 +102,9 @@ def normalize_dialogue(payload, audio_library, number):
             'gap':number(payload.get('gap',.3),'默认间隔',0,10)}
 
 
-def export_dialogue(script, draft, project, library, media, final):
+def export_dialogue(script, draft, project, library, media, final, pack=None):
+    from draft_media import MediaPack
+    pack = pack or MediaPack(media, final/'media')
     audio_tracks, subtitle_tracks, materials = {}, {}, {}
     style = project['subtitleStyle']
     rgb = lambda value: tuple(int(value[i:i+2],16)/255 for i in (1,3,5))
@@ -110,10 +115,9 @@ def export_dialogue(script, draft, project, library, media, final):
         if item_id not in materials:
             item = library.get(item_id)
             source = library.file(item_id)
-            target = media / safe_name(item['name'], item_id, source.suffix)
-            shutil.copyfile(source,target)
+            target = pack.copy(source, item['name'])
             material = draft.AudioMaterial(str(target))
-            material.path = str(final/'media'/target.name)
+            material.path = pack.path(target)
             materials[item_id] = material
         material = materials[item_id]
         key = (clip['kind'],clip['track'])

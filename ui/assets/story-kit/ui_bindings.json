@@ -1,0 +1,251 @@
+{
+  "version": "1.1",
+  "kind": "ui-only kit",
+  "note": "Merge with existing story-kit. Keep its existing sprites, backgrounds and catalog entries.",
+  "assets": [
+    {
+      "filename": "dialogue.png",
+      "asset_id": "dialogue.04_完整对话框_无对白",
+      "sha256": "d6bd31a6f6a2c95cc8035a3b5deb0d090439127e3a53e11b957e243810e813cf",
+      "size": [
+        1920,
+        360
+      ]
+    },
+    {
+      "filename": "dialogue-base.png",
+      "asset_id": "dialogue.01_对话底板_无字",
+      "sha256": "0a3115485caf36566b8c04f3ac3521fdf516b1ab3be0c95c8ef08a83942ba6ba",
+      "size": [
+        1920,
+        360
+      ]
+    },
+    {
+      "filename": "dialogue-decoration.png",
+      "asset_id": "dialogue.02_羽翼冰晶装饰层",
+      "sha256": "927f3dc498710a4a392c466ff062e50988b3c6d480a2cbb00d851e5ee1db7dde",
+      "size": [
+        1920,
+        360
+      ]
+    },
+    {
+      "filename": "nameplate.png",
+      "asset_id": "dialogue.03_姓名牌_无字",
+      "sha256": "c6ae28fb0446ad6ccdfa98e48b5221edaf1a1a99dbe787915403e5d77386808b",
+      "size": [
+        300,
+        66
+      ]
+    },
+    {
+      "filename": "brand-logo.png",
+      "asset_id": "dialogue.冰翼逆时光_同人剧场_字标",
+      "sha256": "ea15f70017f2fffda1ad5f4e95657024fc9c8f44c62a4d5c54d8e09aff9e9197",
+      "size": [
+        2022,
+        778
+      ]
+    },
+    {
+      "filename": "narration.png",
+      "asset_id": "dialogue.narration_base",
+      "sha256": "e002e36118ddaaf26887039f72d354fa71d93df734a38fd5b858404e141556af",
+      "size": [
+        1920,
+        300
+      ]
+    },
+    {
+      "filename": "extended.png",
+      "asset_id": "dialogue.dialogue_extended",
+      "sha256": "c5a39ffa5ae8114953f75e6ca83bc7b664eb35ecb4c4b2faf1855969bab6bdcb",
+      "size": [
+        1920,
+        420
+      ]
+    },
+    {
+      "filename": "extended-no-nameplate.png",
+      "asset_id": "dialogue.dialogue_extended_no_nameplate",
+      "sha256": "a62cc44122c36b7d94e554bd1fc3a39a1ac109e29902d786cbcb04a3f6f9ad08",
+      "size": [
+        1920,
+        420
+      ]
+    },
+    {
+      "filename": "day.png",
+      "asset_id": "transition.eyecatch_day",
+      "sha256": "fe39e6ddda953bdc9890297bb5815c024d94029d84bf398cc21305ec78aedab2",
+      "size": [
+        1672,
+        941
+      ]
+    },
+    {
+      "filename": "night.png",
+      "asset_id": "transition.eyecatch_night",
+      "sha256": "4760246a81cdc5173dcc284551c126caa90ec9ab87f2f49c0f36921bb23bbbc0",
+      "size": [
+        1672,
+        941
+      ]
+    },
+    {
+      "filename": "time-card-day.png",
+      "asset_id": "transition.time_card_day_blank",
+      "sha256": "7b71a7ace661295e6ed53485db10d5b38f6733e3f2d80f074dc9d05466002dfe",
+      "size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "filename": "time-card-night.png",
+      "asset_id": "transition.time_card_night_blank",
+      "sha256": "53370a1ba23caf9287c9db760cbbaf9249d501c380330fce32edcd4aeb86fb7a",
+      "size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "filename": "progress-track.png",
+      "asset_id": "controls.progress_track",
+      "sha256": "2cfefa43a858985d8efea9a8c9ef6c377377c9e2c9c117a81a89b1ad3bc754d8",
+      "size": [
+        760,
+        24
+      ]
+    },
+    {
+      "filename": "progress-fill.png",
+      "asset_id": "controls.progress_fill",
+      "sha256": "d94e32b3225d1e171444d893ac46d9a4b7ed53c0b8656e523257899e866fcd92",
+      "size": [
+        760,
+        24
+      ]
+    },
+    {
+      "filename": "choice-idle.png",
+      "asset_id": "choice.choice_idle",
+      "sha256": "87d8311f07bfc4faf0bc66057490c66a3b35e5830bd69a26b590459e2cfc83ea",
+      "size": [
+        1040,
+        100
+      ]
+    },
+    {
+      "filename": "choice-tall-idle.png",
+      "asset_id": "choice.choice_tall_idle",
+      "sha256": "c4241b8c43c02e51f2dd1ff217f8e07004f10d4c4737cf33ef07fa1672fcb7f7",
+      "size": [
+        1040,
+        148
+      ]
+    },
+    {
+      "filename": "choice-hover.png",
+      "asset_id": "choice.choice_hover",
+      "sha256": "5cf3a91d40ba14af2463579c25cfa35e0388c09f6f983f41c944d4dd008dd451",
+      "size": [
+        1040,
+        100
+      ]
+    },
+    {
+      "filename": "choice-tall-hover.png",
+      "asset_id": "choice.choice_tall_hover",
+      "sha256": "c7da50474cc34cd41b5665da11d9c69cebf4e31e89cdadfcc36ee037c2c2ed9a",
+      "size": [
+        1040,
+        148
+      ]
+    },
+    {
+      "filename": "choice-pressed.png",
+      "asset_id": "choice.choice_pressed",
+      "sha256": "3fb96090ff60566cc556afd262b64745e8be4fa584baefe2a29f7060c79ccb45",
+      "size": [
+        1040,
+        100
+      ]
+    },
+    {
+      "filename": "choice-tall-pressed.png",
+      "asset_id": "choice.choice_tall_pressed",
+      "sha256": "9ab4b7aab9dccd79558ddeb6e6a1612f850ff842db693a57918f442c83d02363",
+      "size": [
+        1040,
+        148
+      ]
+    },
+    {
+      "filename": "choice-selected.png",
+      "asset_id": "choice.choice_selected",
+      "sha256": "f8cb4846786200bd871554e40e0dd58214a4048cc37ebba1d70fa1aae680c30b",
+      "size": [
+        1040,
+        100
+      ]
+    },
+    {
+      "filename": "choice-tall-selected.png",
+      "asset_id": "choice.choice_tall_selected",
+      "sha256": "516b7ba2248f9c79c7c07dd9a1b6a694f7fec2b425c356f2f75946f4ef7b07fb",
+      "size": [
+        1040,
+        148
+      ]
+    },
+    {
+      "filename": "choice-disabled.png",
+      "asset_id": "choice.choice_disabled",
+      "sha256": "86ee04e13ca15e3f5d5c78000ca57ac4e1933988ca638b32d97441483f728cf6",
+      "size": [
+        1040,
+        100
+      ]
+    },
+    {
+      "filename": "choice-tall-disabled.png",
+      "asset_id": "choice.choice_tall_disabled",
+      "sha256": "d8557a67993d965c4c5f5dcb368487c79d516cd999c158567abcc5802930a9ef",
+      "size": [
+        1040,
+        148
+      ]
+    },
+    {
+      "filename": "next-idle.png",
+      "asset_id": "dialogue.next_idle",
+      "sha256": "4db8554ee6ef5e0495e717a12b51160ccafad395a0ad2effa2e76f2b2b38b6c5",
+      "size": [
+        44,
+        44
+      ]
+    },
+    {
+      "filename": "next-hover.png",
+      "asset_id": "dialogue.next_hover",
+      "sha256": "f7e35a7b638719206ac9e843e42230f894300edc3b8f07870b4b3409e6694b24",
+      "size": [
+        44,
+        44
+      ]
+    },
+    {
+      "filename": "next-selected.png",
+      "asset_id": "dialogue.next_selected",
+      "sha256": "f7e35a7b638719206ac9e843e42230f894300edc3b8f07870b4b3409e6694b24",
+      "size": [
+        44,
+        44
+      ]
+    }
+  ],
+  "integrationNote": "2026-10-13: dialogue divider lines removed from source SVG; all colors share geometry; reference-style quick menu and VOICE HUD provided by game_hud.py."
+}

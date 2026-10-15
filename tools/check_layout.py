@@ -111,7 +111,7 @@ def main() -> int:
             finish(0)
 
     def loaded(ok: bool) -> None:
-        #加载页最短展示 1.2 秒 + 数据拉取，等 6 秒再量
+
         QTimer.singleShot(6000, measure)
 
     view.loadFinished.connect(loaded)

@@ -1,4 +1,4 @@
-//内测期限提示条验收：过期 / 临近 / 还早 三种状态。
+
 const e2e = require('./ui_e2e_helper.cjs');
 const { chromium } = e2e;
 
@@ -17,7 +17,7 @@ async function check(page, beta, label) {
   }));
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.app-header', { timeout: 15000 });
-  //等待品牌数据加载完成后检查关于页。
+
   await page.waitForFunction(
     () => (document.getElementById('about-app-line')?.textContent || '') !== '—',
     { timeout: 20000 });
@@ -34,9 +34,9 @@ async function check(page, beta, label) {
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('dialog', d => d.accept());     //过期时会弹一次 alert，自动接受
+  page.on('dialog', d => d.accept());
 
-  //先给个默认 brand，让首次加载不至于 404
+
   await page.route('**/api/brand', route => route.fulfill({
     contentType: 'application/json', body: JSON.stringify(BASE_BRAND) }));
   await page.goto(process.argv[2] + '/', { waitUntil: 'domcontentloaded' });
@@ -53,7 +53,7 @@ async function check(page, beta, label) {
   results.push(await check(page, { configured: false, deadline: '', expired: false,
     daysLeft: null, warn: false, warnDays: 7, message: '' }, '未配置（不该出现）'));
 
-  //关闭按钮要能关掉
+
   await page.route('**/api/brand', route => route.fulfill({
     contentType: 'application/json',
     body: JSON.stringify({ ...BASE_BRAND, beta: { configured: true, deadline: '2000-01-01',

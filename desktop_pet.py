@@ -15,8 +15,12 @@ from sprite_library import SpriteLibrary
 import app_paths
 import time
 
-#使用 Basic 样式以支持自定义控件，生产与测试保持一致。
+
 QT_QUICK_CONTROLS_STYLE = "Basic"
+
+
+def picker_icon_path() -> Path:
+    return app_paths.resource_root() / "ui" / "picker-icon.ico"
 
 
 def _pet_log(message: str) -> None:
@@ -53,7 +57,7 @@ def apply_render_backend(app) -> str:
             context.doneCurrent()
         else:
             detail = "无法创建 OpenGL 上下文"
-    except Exception as error:  #缺 DLL / 驱动异常都归到这里
+    except Exception as error:
         detail = f"探测显卡失败：{type(error).__name__}: {error}"
 
     if hardware_ok:
@@ -88,7 +92,7 @@ PET_SIZE_ORDER = tuple(PET_SIZES)
 GALLERY_PAGE_SIZE = 60
 
 
-#纯逻辑：立绘切换顺序与窗口状态
+
 
 def build_roster(library: SpriteLibrary, search: str = "", favorites: bool = False,
                  limit: int = 10000) -> list[dict]:
@@ -130,7 +134,7 @@ def build_gallery_page(library: SpriteLibrary, search: str = "", favorites: bool
             "total": result["total"], "offset": safe_offset, "limit": page_limit,
             "tags": result.get("tags") or [], "games": result.get("games") or [],
             "characters": result.get("characters") or [],
-            #作品与角色筛选相互约束，可选项来自同一次图库查询。
+
             "scopedGames": result.get("scopedGames") or [],
             "gameCharacters": result.get("gameCharacters") or {}}
 
@@ -150,7 +154,7 @@ def _sanitize_rect(value: object) -> dict | None:
         x, y = int(value["x"]), int(value["y"])
         width, height = int(value["width"]), int(value["height"])
     except (KeyError, TypeError, ValueError, OverflowError):
-        #将非有限几何视为无效值，兼容 int(inf) 的 OverflowError。
+
         return None
     if not (280 <= width <= 2000 and 360 <= height <= 2000):
         return None
@@ -238,9 +242,9 @@ class DesktopPetState:
             "height": self.DEFAULT_HEIGHT,
             "sizeTier": self.DEFAULT_TIER,
             "spriteId": "",
-            #保存总览窗口几何，恢复时校正到可用屏幕。
+
             "galleryRect": None,
-            #None = 没有自定义默认位置，启动时按"工作区右侧偏下"自动摆放。
+
             "defaultX": None,
             "defaultY": None,
         }
@@ -274,7 +278,7 @@ class DesktopPetState:
             merged["sizeTier"] = tier
             merged["width"], merged["height"] = PET_SIZES[tier]
         else:
-            #旧状态没有档位，统一迁移到新版默认 M，真正实现“首次升级后缩小”。
+
             merged["sizeTier"] = self.DEFAULT_TIER
             merged["width"], merged["height"] = PET_SIZES[merged["sizeTier"]]
         sprite_id = content.get("spriteId")
@@ -302,10 +306,10 @@ class DesktopPetState:
             "height": int(height),
             "sizeTier": tier,
             "spriteId": str(sprite_id)[:64],
-            #保留总览窗口几何：save() 会整份覆写状态文件，不带上就会把用户
-            #精心拖好的总览位置丢掉（这是"整份覆写"最容易踩的坑）。
+
+
             "galleryRect": current.get("galleryRect"),
-            #同理保留用户设定的默认位置 —— 否则每次拖动桌宠都会把它抹掉。
+
             "defaultX": current.get("defaultX"),
             "defaultY": current.get("defaultY"),
         }
@@ -348,7 +352,7 @@ class DesktopPetState:
                 pass
 
 
-#Qt 界面层：仅在 PySide6 可用时加载
+
 
 def _topmost_log(message: str) -> None:
     """记录置顶状态，日志最多保留 200 行。"""
@@ -369,8 +373,8 @@ def launch_tray_process(tray_dir, icon):
     """以独立进程启动托盘，源码态和冻结态使用各自入口。"""
     creation = 0
     if os.name == "nt":
-        #DETACHED_PROCESS | CREATE_NO_WINDOW：托盘不弹黑框，
-        #也不随桌宠控制台关闭而一起挂掉。
+
+
         creation = 0x00000008 | 0x08000000
     if getattr(sys, "frozen", False):
         arguments = [sys.executable, "--tray",
@@ -417,7 +421,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
     from windows_file_drag import (DroppedOnForbiddenTarget, cleanup_drag_copy, drag_file,
                                   make_draggable_copy, set_drag_dir, sprite_filename)
 
-    #托盘是独立进程（QtWidgets 与 QtQuick 不能同进程），通过文件通信。
+
     import pet_tray
 
     code_dir = Path(__file__).resolve().parent
@@ -426,7 +430,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
     library = SpriteLibrary(root)
     state = DesktopPetState(data_dir)
 
-    #剪映/PR 按路径引用素材，临时目录 + 自动清理 = 工程"媒体丢失"。
+
     try:
         from app_settings import AppSettings
 
@@ -457,30 +461,30 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
             self._favorite = False
             self._status = "按住人物拖动，即可发送真实 PNG"
             self._dragging = False
-            #仅恢复本次拖放隐藏过的总览，避免从桌宠拖放时意外打开总览。
+
             self._gallery_hidden_for_drag = False
             self._empty = False
-            #首次加载与重新构建名册均标记 loading，避免闪现空态。
+
             self._loading = True
             self._ready = False
             self._window = None
             self._gallery_window = None
             self._size_tier = state.load()["sizeTier"]
-            #托盘菜单要用屏幕可用区域来校验「默认位置」是否还放得下。
-            #QML 侧启动时会调 setScreenArea() 把它填进来，拿不到就退回一个常见分辨率。
+
+
             self._screen_area = (0, 0, 1920, 1080)
-            #托盘通信目录与进程句柄（托盘是独立进程，见 pet_tray.py）
+
             self._tray_dir = data_dir
             self._tray_process = None
             self.reload()
 
-        #数据
+
         def reload(self) -> None:
             self._set_loading(True)
             try:
                 self._roster = build_roster(library)
             finally:
-                #无论成功失败都要退出 loading，否则界面会永远停在"正在整理"
+
                 self._ready = True
                 self._set_loading(False)
             self._empty = not self._roster
@@ -513,7 +517,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
             item = self._roster[self._index]
             path = library.file(item["id"], False)
             if path is None:
-                #文件丢失则跳过，继续找下一张可用的
+
                 self._roster.pop(self._index)
                 if not self._roster:
                     self.reload()
@@ -553,7 +557,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
                 self._loading = value
                 self.loadingChanged.emit()
 
-        #QML 可见属性
+
         @Property(str, notify=imageChanged)
         def imageUrl(self) -> str:
             return self._image
@@ -600,7 +604,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
         def sizeTier(self) -> str:
             return self._size_tier
 
-        #操作
+
         @Slot()
         def nextSprite(self) -> None:
             if self._roster:
@@ -699,7 +703,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
             if tier == self._size_tier and self._window is not None:
                 self.syncTray()
                 return
-            #复用 cycleSize 的落盘逻辑，但直接指明目标档位。
+
             while self._size_tier != tier:
                 self.cycleSize()
             self.syncTray()
@@ -727,11 +731,8 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
 
         def start_tray_process(self) -> None:
             """拉起托盘进程。失败不影响桌宠本身（托盘只是"找回入口"）。"""
-            #brand-assets/app.ico 是主程序的品牌徽章，缩到 16px 在托盘里认不出来。
-            icon = app_paths.resource_root() / "ui" / "avatar-fox-round.png"
-            if not icon.is_file():
-                icon = app_paths.resource_root() / "brand-assets" / "app.ico"
-            #真正的启动逻辑在模块级 `launch_tray_process()`
+            icon = picker_icon_path()
+
             self._tray_process = launch_tray_process(self._tray_dir, icon)
             if self._tray_process is None:
                 return
@@ -774,7 +775,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
             self._size_tier = cycle_size_tier(self._size_tier)
             self.sizeTierChanged.emit()
             width, height = PET_SIZES[self._size_tier]
-            #即时落盘 sizeTier；位置沿用上次保存值，500ms 防抖 / onClosing 会再校正坐标。
+
             saved = state.load()
             x = int(saved["x"]) if saved["x"] is not None else 0
             y = int(saved["y"]) if saved["y"] is not None else 0
@@ -794,7 +795,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
                 item = row["item"]
                 image_path = row["imagePath"]
                 url = QUrl.fromLocalFile(str(image_path)).toString()
-                #头部特写 URL：读后端缓存好的文件（`thumbs/<id>.head.png`）。
+
                 head_url = url
                 try:
                     is_special = bool(item.get("category") not in (None, "", "normal"))
@@ -810,7 +811,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
                     "favorite": bool(item["favorite"]),
                     "imageUrl": url,
                     "headUrl": head_url,
-                    #面部小头像：同一张图，界面自己裁右上角圆形区域，零额外磁盘开销。
+
                     "faceUrl": url,
                     "tags": list(item.get("tags") or []),
                     "game": item["game"],
@@ -881,7 +882,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
             self._dragging = True
             self.dragStateChanged.emit()
             self._set_status(f"正在拖动：{item['displayName'] or item['character']}…")
-            #拖放开始时隐藏总览，并记录状态以便恢复。
+
             gallery_window = getattr(self, "_gallery_window", None)
             hid_gallery = False
             if gallery_window is not None:
@@ -904,17 +905,17 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
                 target = make_draggable_copy(path, sprite_filename(item))
                 dropped = drag_file(target)
             except DroppedOnForbiddenTarget:
-                #拖放完成后立即解锁，副本清理交给后台线程。
+
                 self._set_status("已取消：不能拖到桌面或文件夹，请拖到剪映素材区")
                 forbidden = True
             except Exception as error:  #pragma: no cover - 依赖 Windows 实机
                 self._set_status(f"拖动失败：{error}")
             finally:
-                #先解锁再收尾：收尾可能起延迟删除线程，不能让它挡住下一次拖动
+
                 self._dragging = False
                 self.dragStateChanged.emit()
                 cleanup_drag_copy(target, dropped)
-                #归位：稍等一下再恢复置顶。
+
                 QTimer.singleShot(320, self._restore_gallery_topmost)
             if not forbidden:
                 self._set_status("已拖到剪映/PR（文件保留在 DragOut，工程随时可读）" if dropped
@@ -942,8 +943,8 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
                 gallery_window.setProperty("visible", True)
             except Exception:
                 pass
-            #清掉"正在拖放"标志：此后 pet.qml 的派生绑定（visible: !总览可见 && !拖拽中）
-            #会自己把桌宠藏好，这里不需要再手动压底。
+
+
             self._set_gallery_dragging(gallery_window, False)
             self._apply_topmost(gallery_window, True)
 
@@ -1000,8 +1001,8 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
                     )
                     if after == bool(topmost):
                         return
-                    #回读没变 → 很可能是"非前台窗口，排序请求被忽略"。
-                    #先把它抬到前台（不用 SWP_NOACTIVATE 的那一套），再试一次。
+
+
                     try:
                         user32.SetForegroundWindow(wintypes.HWND(hwnd))
                     except Exception:
@@ -1080,9 +1081,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
     apply_render_backend(app)
     app.setApplicationName("冰翼取用精灵")
     app.setOrganizationName("冰翼逆时光")
-    icon_path = app_paths.resource_root() / "brand-assets" / "app.ico"
-    if not icon_path.is_file():
-        icon_path = app_paths.resource_root() / "ui" / "favicon.png"
+    icon_path = picker_icon_path()
     app.setWindowIcon(QIcon(str(icon_path)))
     engine = QQmlApplicationEngine()
     bridge = DesktopPetBridge()
@@ -1094,26 +1093,15 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
         raise RuntimeError("无法加载桌宠界面 ui/pet.qml")
 
     window = engine.rootObjects()[0]
-    #通过 QGuiApplication 设置图标；QML Window 不提供 icon.source。
-    fox_icon = app_paths.resource_root() / "ui" / "avatar-fox-round.png"
-    if fox_icon.is_file():
-        try:
-            window.setIcon(QIcon(str(fox_icon)))
-        except Exception:
-            pass
+    window.setIcon(QIcon(str(icon_path)))
     bridge.set_window(window)
-    #pet.qml 里内联的 GalleryWindow 实例：注入给桥，供「钉住」开关切换它的置顶
+
     gallery_root = window.findChild(QObject, "galleryWindow")
     if gallery_root is not None:
         bridge.set_gallery_window(gallery_root)
-        #为总览单独设置图标，覆盖应用级默认图标。
-        if fox_icon.is_file():
-            try:
-                gallery_root.setIcon(QIcon(str(fox_icon)))
-            except Exception:
-                pass
+        gallery_root.setIcon(QIcon(str(icon_path)))
 
-    #命令轮询（托盘 → 桌宠）
+
     app.aboutToQuit.connect(bridge.shutdown_tray)
 
     command_timer = QTimer()
@@ -1121,7 +1109,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
     command_timer.timeout.connect(bridge.poll_tray_command)
     command_timer.start()
 
-    #恢复窗口位置，并夹紧到当前可用屏幕区域，异常退出后也能安全找回。
+
     saved = state.load()
     screen = window.screen() or QGuiApplication.primaryScreen()
     available = screen.availableGeometry() if screen else QRect(0, 0, 1920, 1080)
@@ -1130,7 +1118,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
 
     x = y = None
     if saved.get("defaultX") is not None and saved.get("defaultY") is not None:
-        #默认位置先限制在当前工作区，无法容纳时恢复自动摆放。
+
         candidate_x, candidate_y = clamp_to_area(
             int(saved["defaultX"]), int(saved["defaultY"]), width, height,
             available.x(), available.y(), available.width(), available.height())
@@ -1147,10 +1135,10 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
                          available.width(), available.height())
     window.setProperty("x", x)
     window.setProperty("y", y)
-    #窗口就位后启动托盘，提供隐藏后的恢复入口。
+
     bridge.setScreenArea()
     bridge.start_tray_process()
-    #窗口显示后再同步托盘，避免记录事件循环前的不可见状态。
+
     QTimer.singleShot(0, bridge.syncTray)
     QTimer.singleShot(0, lambda: _topmost_log(
         f"PET_READY hwnd={int(window.winId())} visible={window.isVisible()}"))
@@ -1171,9 +1159,7 @@ def main(argv: list[str] | None = None) -> int:
         data_dir = arguments.data_dir or app_paths.resolve_data_dir()
         icon = arguments.icon
         if icon is None:
-            icon = app_paths.resource_root() / "ui" / "avatar-fox-round.png"
-            if not icon.is_file():
-                icon = app_paths.resource_root() / "brand-assets" / "app.ico"
+            icon = picker_icon_path()
         return pet_tray.tray_entry(data_dir, icon)
     return run_desktop_pet(arguments.library_root)
 

@@ -84,7 +84,7 @@ class StateProtocolTest(unittest.TestCase):
 
     def test_clear_state_is_safe_when_missing(self):
         with tempfile.TemporaryDirectory() as directory:
-            clear_state(Path(directory))  #不应抛异常
+            clear_state(Path(directory))
 
     def test_state_file_is_atomic_no_tmp_left_behind(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -138,7 +138,7 @@ if process is not None:
             result = subprocess.run(
                 [sys.executable, str(probe), str(root)],
                 capture_output=True, text=True, timeout=120, cwd=str(root),
-                #子进程输出显式使用 UTF-8，避免 Windows 默认编码差异。
+
                 encoding="utf-8", errors="replace")
         combined = (result.stdout or "") + (result.stderr or "")
         self.assertNotIn(
@@ -147,7 +147,7 @@ if process is not None:
         self.assertIn(
             "OK", (result.stdout or ""),
             f"探针没跑完（说明真的抛了异常）：\nstdout={result.stdout}\nstderr={result.stderr}")
-        #日志里应能看到冻结态的目标（证明走的是 --tray 分支）
+
         self.assertIn("--tray", (result.stdout or ""),
                       f"冻结态应启动 `exe --tray`，日志：\n{result.stdout}")
 

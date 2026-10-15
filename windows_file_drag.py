@@ -328,7 +328,7 @@ class FileDropSource:
             if escape_pressed:
                 return DRAGDROP_S_CANCEL
             if not key_state & MK_LBUTTON:
-                #松手即将触发 Drop：先检查落点，命中禁止目标则取消，阻止文件被复制
+
                 if forbidden_check is not None and forbidden_check():
                     self.cancelled_on_forbidden = True
                     return DRAGDROP_S_CANCEL
@@ -355,11 +355,11 @@ def default_drag_dir() -> Path:
 
         return app_paths.resolve_data_dir() / "exports" / app_paths.DRAG_OUT_DIR_NAME
     except Exception:
-        #极端情况下（导入失败）退回临时目录，保证拖放本身仍然可用
+
         return Path(tempfile.gettempdir()) / "BingyiGalCreativeWorkshop-DragOut"
 
 
-#当前拖出目录。调用方（桌宠/取用窗）在启动时用 set_drag_dir() 注入用户设置里的位置。
+
 DRAG_COPY_DIR = default_drag_dir()
 
 
@@ -420,7 +420,7 @@ def sprite_filename(item: dict) -> str:
     return (name or "立绘")[:80]
 
 
-#按路径记录删除计划与文件指纹；复用前取消旧计划，删除前核对指纹。
+
 _PENDING_DELETES: dict[str, tuple[threading.Timer, tuple[int, int] | None]] = {}
 _PENDING_LOCK = threading.Lock()
 
@@ -447,8 +447,8 @@ def make_draggable_copy(path: Path, wanted_name: str) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     safe_name = re.sub(r'[\\/:*?"<>|\r\n\t]', "_", wanted_name).strip(" ._") or "立绘"
     target = directory / f"{safe_name}.png"
-    #复用固定名之前，先撤销"上一次没投出去"遗留的删除计划，
-    #否则它会在几秒后把这次成功投放的文件删掉。
+
+
     _cancel_pending_delete(target)
     shutil.copyfile(Path(path), target)
     return target
@@ -462,8 +462,8 @@ def cleanup_drag_copy(path: Path | None, dropped: bool, delay_seconds: float = 1
     def _delete() -> None:
         with _PENDING_LOCK:
             entry = _PENDING_DELETES.pop(str(path), None)
-        #指纹核对：如果这一份已经被后来的拖拽覆盖过（内容/时间变了），
-        #说明它现在是"用户成功投放的那一份"，绝不能删。
+
+
         if entry is not None and entry[1] is not None:
             if _file_fingerprint(path) != entry[1]:
                 return
@@ -472,7 +472,7 @@ def cleanup_drag_copy(path: Path | None, dropped: bool, delay_seconds: float = 1
         except OSError:
             pass
 
-    #没投出去：目标应用根本没拿到文件，可以立刻删。
+
     if delay_seconds <= 0:
         _delete()
         return

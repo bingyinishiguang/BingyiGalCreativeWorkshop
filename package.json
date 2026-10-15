@@ -1,0 +1,8 @@
+{
+  "name": "bingyi-gal-creative-workshop-tests",
+  "private": true,
+  "description": "Browser regression tests for the local workshop UI",
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

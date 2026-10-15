@@ -156,13 +156,19 @@ html.desktop-shell body.editor-focus .app-header .brand,html.desktop-shell body.
 @media(max-width:1100px){.editor-mode>.production-filters{flex-wrap:nowrap;overflow:auto}.editor-mode>.production-filters>*{flex-shrink:0}.editor-mode button{padding:6px 8px}.editor-top>.production-panel{padding:8px}}
 @media(max-width:850px){.editor-top{overflow-x:auto}.editor-top .cut-inspector{grid-column:auto!important;max-height:none}.editor-footer{gap:6px}.editor-footer .editor-status{display:none}.editor-assets .production-grid{grid-template-columns:1fr}}
 
-/*表情组与构图预设。*/
+
 .expression-pick{display:flex!important;align-items:center;gap:5px;font-size:12px!important;margin:6px 0!important}
+.expression-pick[hidden]{display:none!important}
+#expression-selection-bar{display:flex;flex-basis:100%;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted)}
+#expression-selection-bar[hidden]{display:none!important}
+#roughcut-page.cut-studio #expression-selection-cancel{font-size:11px;padding:5px 8px}
+#roughcut-page.cut-studio .asset-add-reason{display:block;font-size:11px;line-height:1.5;color:var(--muted);white-space:normal;overflow-wrap:anywhere;margin:5px 0}
+#roughcut-page.cut-studio .asset-add-reason[hidden]{display:none}
 .expression-controls{border-top:1px solid #355166;margin:10px 0;padding-top:8px}.expression-controls small{display:block;color:#93adbd;font-size:11px;margin:6px 0}.expression-controls select{width:100%;margin-bottom:6px}.expression-controls button{margin-top:5px}
 .group-stage{position:relative;overflow:hidden;width:100%;max-height:320px;background:repeating-conic-gradient(#17384a 0% 25%,#102734 0% 50%) 0/20px 20px;margin:10px auto}.group-image{position:absolute;max-width:none!important;max-height:none!important;object-fit:fill}
 #expression-dialog input[type=number]{width:100px}#expression-dialog #group-name{width:70%}#expression-dialog label{color:#b4d6e9}
 .composition-preset{border:1px solid #355166;border-radius:8px;padding:10px;margin:10px 0}.composition-preset strong,.composition-preset small{display:block}.composition-preset small{color:#93adbd;margin:5px 0}#cut-presets p{font-size:12px;color:#93adbd}
-/*视频编辑区。*/
+
 body.studio-active .app-header{display:none!important}
 html.desktop-shell body.studio-active .app-header{display:flex!important;height:38px;min-height:38px;justify-content:flex-end;padding:0 8px;background:#101011!important}
 html.desktop-shell body.studio-active .app-header .brand,html.desktop-shell body.studio-active .app-header .app-nav,html.desktop-shell body.studio-active .app-header .header-actions,html.desktop-shell body.studio-active .app-header .header-divider{display:none!important}
@@ -250,9 +256,7 @@ body.studio-active .app-shell{background:#101011!important}
 @media(max-width:1100px){.studio-local-rail{width:73px;padding:10px 4px}.studio-material-content{padding:8px}.studio-material-tabs{gap:4px}#roughcut-page.cut-studio .production-grid{grid-template-columns:1fr}#roughcut-page.cut-studio .editor-preview-controls label{display:none}}
 #roughcut-page.cut-studio .studio-header>div{flex:1;min-width:0;margin-right:auto}
 #roughcut-page.cut-studio .studio-header h2{white-space:nowrap}
-#roughcut-page.cut-studio .studio-header>button{width:auto!important;min-width:0!important;flex:none!important;white-space:nowrap;height:32px!important;margin:0!important;background:var(--accent-soft)!important;box-shadow:none!important}
-#roughcut-page.cut-studio .studio-header>#cut-export{background:var(--accent)!important;color:white!important;border:0!important}
-#roughcut-page.cut-studio .studio-header>#cut-back{background:transparent!important}
+#roughcut-page.cut-studio .studio-header>button{width:auto!important;min-width:0!important;flex:none!important;white-space:nowrap;height:32px!important;margin:0!important}
 #roughcut-page.cut-studio .studio-header>button{min-height:32px!important}
 /*Sentence review table.*/
 .script-dialog{width:min(1240px,96vw);height:min(780px,90vh);display:flex;flex-direction:column;gap:10px;padding:18px}
@@ -278,14 +282,48 @@ body.studio-active .app-shell{background:#101011!important}
 #roughcut-page.cut-studio button{border-color:var(--panel-border);color:var(--text);background:var(--bg-soft)}
 #roughcut-page.cut-studio button:hover{border-color:var(--accent-border);background:var(--accent-soft)}
 #roughcut-page.cut-studio button.active{color:var(--accent);border-color:var(--accent-border)}
-#roughcut-page.cut-studio .studio-header>#cut-export,#script-build{background:linear-gradient(120deg,#39b6f1,#285bbb)!important;color:#fff!important;border-color:#6dcfff!important;box-shadow:0 4px 16px #248bd633!important}
+#roughcut-page.cut-studio .studio-header>button,body.compact-shell #roughcut-page.cut-studio .studio-header>button:is(button,#cut-back,#cut-save,#studio-project-settings),#script-build{background:linear-gradient(120deg,#39b6f1,#285bbb)!important;color:#fff!important;border-color:#6dcfff!important;box-shadow:0 4px 16px #248bd633!important}
+#roughcut-page.cut-studio .studio-header>button{font-weight:600;text-shadow:0 1px 2px #08396980}
+#roughcut-page.cut-studio .studio-header>button:hover:not(:disabled),body.compact-shell #roughcut-page.cut-studio .studio-header>button:is(button,#cut-back,#cut-save,#studio-project-settings):hover:not(:disabled){background:linear-gradient(120deg,#50c2fa,#356bcf)!important;border-color:#a9e7ff!important;box-shadow:0 4px 18px #248bd655!important}
+#roughcut-page.cut-studio .studio-header>button:focus-visible{outline:2px solid var(--text-strong);outline-offset:3px}
+#roughcut-page.cut-studio .studio-header>button:disabled{opacity:.65;cursor:wait;box-shadow:none!important}
 #roughcut-page.cut-studio button{border-radius:8px}
 #roughcut-page.cut-studio .asset-open{background:transparent;border-color:transparent}
 #roughcut-page.cut-studio .asset-open[aria-pressed="true"]{color:var(--accent)}
 .asset-preview-surface{position:relative;--asset-thumb-height:90px}
-#roughcut-page.cut-studio .asset-preview-surface>[data-add-asset]{position:absolute;top:calc(var(--asset-thumb-height) - 30px);right:6px;width:24px;height:24px;min-height:0;padding:0;border-radius:50%;display:grid;place-items:center;font-size:20px;line-height:1;background:var(--accent);color:var(--bg);border:1px solid var(--accent-border);box-shadow:0 2px 6px #0005}
-#roughcut-page.cut-studio .asset-preview-surface>[data-add-asset]:hover{background:var(--accent-hover);transform:scale(1.08)}
+#roughcut-page.cut-studio .asset-preview-surface>[data-add-asset],#roughcut-page.cut-studio .audio-asset-card>[data-add-audio]{position:absolute;right:6px;width:24px;height:24px;min-height:0;padding:0;border-radius:50%;display:grid;place-items:center;font-size:20px;line-height:1;background:var(--accent);color:var(--bg);border:1px solid var(--accent-border);box-shadow:0 2px 6px #0005}
+#roughcut-page.cut-studio .asset-preview-surface>[data-add-asset]{top:calc(var(--asset-thumb-height) - 30px)}
+#roughcut-page.cut-studio .asset-preview-surface>[data-add-asset]:hover,#roughcut-page.cut-studio .audio-asset-card>[data-add-audio]:hover{background:var(--accent-hover);transform:scale(1.08)}
+.audio-asset-card{position:relative}
+#roughcut-page.cut-studio .audio-asset-card>.audio-row{padding-right:40px}
+#roughcut-page.cut-studio .audio-asset-card>[data-add-audio]{bottom:6px}
+#roughcut-page.cut-studio .asset-preview-surface>[data-add-asset]:disabled,#roughcut-page.cut-studio .audio-asset-card>[data-add-audio]:disabled{opacity:.4;transform:none}
+#roughcut-page.cut-studio .asset-open:disabled,#roughcut-page.cut-studio [data-add-asset]:disabled,#roughcut-page.cut-studio [data-replace-asset]:disabled,#roughcut-page.cut-studio .audio-row:disabled,#roughcut-page.cut-studio [data-add-audio]:disabled{cursor:not-allowed}
+#roughcut-page.cut-studio .studio-material-content>#cut-asset-hint,#roughcut-page.cut-studio .studio-material-content>#cut-asset-target-label{flex:none;margin:0}
+#studio-text-assets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#studio-text-assets>.production-actions{grid-column:1/-1;margin:0}
+#studio-text-assets[hidden]{display:none}
+.studio-text-card-surface{position:relative;height:var(--asset-thumb-height,90px);border-radius:5px;background:var(--bg-soft);display:grid;place-items:center}
+.studio-text-sample{font-size:28px;color:var(--text-strong);text-align:center;line-height:1.1}
+.studio-text-sample small{font-size:12px;line-height:1.7;color:var(--muted)}
+#roughcut-page.cut-studio #studio-add-default-text{position:absolute;right:6px;bottom:6px;width:24px;height:24px;min-height:0;padding:0;border-radius:50%;display:grid;place-items:center;font-size:20px;line-height:1;background:var(--accent);color:var(--bg);border:1px solid var(--accent-border)}
+#roughcut-page.cut-studio #studio-add-default-text:hover{background:var(--accent-hover)}
+.studio-text-card>strong{display:block;font-size:12px;font-weight:400;margin:6px 0;color:var(--text)}
+.studio-text-card>small{display:block;font-size:10px;color:var(--muted)}
+@media(min-width:1600px){.studio-text-card-surface{height:120px}}
+.cut-preview.asset-previewing audio.asset-preview-media{height:44px;top:50%;transform:translateY(-50%);width:80%;left:10%}
 @media(min-width:1600px){.asset-preview-surface{--asset-thumb-height:120px}}
 .studio-dialog{background:var(--panel);color:var(--text);border-color:var(--accent-border)}
 
 #script-layout{max-height:34vh;overflow:auto;flex-shrink:0}#script-layout fieldset{border:1px solid var(--panel-border);border-radius:8px;margin:6px 0}#script-layout .production-filters{gap:8px}#script-layout input[type=number]{width:90px}.story-region{outline:1px dashed #70d8ff;outline-offset:4px}.story-name{white-space:pre;font-family:"Microsoft YaHei",sans-serif}
+
+/*Keep project state visible without consuming the editing areas.*/
+#roughcut-page.cut-studio #studio-project-state{display:block!important;margin:2px 0 0;font-size:11px;line-height:1.4;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#roughcut-page.cut-studio #studio-project-state[data-dirty="true"]{color:var(--accent)}
+.studio-settings-note{font-size:12px;line-height:1.7;color:var(--muted);margin:0 0 8px}
+#roughcut-page.cut-studio .editor-footer{align-items:flex-start;max-height:90px;overflow-y:auto}
+#roughcut-page.cut-studio .editor-footer .editor-status{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.6}
+#editor-snap-guide{position:absolute;top:0;bottom:0;width:1px;background:var(--accent);box-shadow:0 0 0 1px var(--accent-soft);pointer-events:none;z-index:12}
+#editor-snap-guide[hidden]{display:none}
+#editor-timeline-actions label:has(#editor-snap){display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:12px;margin:0}
+@media(max-width:1400px){#roughcut-page.cut-studio .studio-header{gap:7px}#roughcut-page.cut-studio .studio-header>button{padding-left:8px;padding-right:8px}#roughcut-page.cut-studio .studio-header h2{font-size:14px}}

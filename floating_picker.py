@@ -24,7 +24,7 @@ BLUE = "#3d83d3"
 LIGHT_BLUE = "#eaf4ff"
 BORDER = "#d8e6f2"
 
-#增量加载每页条数：一次只查询并解码一小批，滚动到底部再取下一页。
+
 PAGE_SIZE = 60
 
 
@@ -60,8 +60,8 @@ class FloatingPicker:
         self.drag_started = False
         self.collapsed = False
 
-        #后台解码：工作线程只做 PIL 解码，结果放入线程安全队列，
-        #主线程通过 root.after 轮询回填 PhotoImage，避免跨线程操作 tkinter。
+
+
         self._decode_queue: queue.Queue = queue.Queue()
         self._ready_queue: queue.Queue = queue.Queue()
         self._pending_decodes = 0
@@ -385,7 +385,7 @@ class FloatingPicker:
         target = None
         dropped = False
         try:
-            #复制为带语义名的 PNG（角色_标签_表情.png），剪映素材区直接可读；
+
             target = make_draggable_copy(path, sprite_filename(item))
             dropped = drag_file(target)
             self.status.configure(
@@ -430,7 +430,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     code_dir = Path(__file__).resolve().parent
     library_root = (arguments.library_root or app_paths.resolve_data_dir() / "exports" / app_paths.LIBRARY_DIR_NAME).resolve()
-    #不再用 %TEMP%，也不会在拖出后自动删除（剪映/PR 按路径引用素材）。
+
     try:
         from app_settings import AppSettings
 

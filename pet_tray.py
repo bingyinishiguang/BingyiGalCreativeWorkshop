@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-#状态/命令文件名集中在此，桌宠那边从本模块导入，避免两处各写一份字符串。
+
 TRAY_STATE_NAME = "pet-tray-state.json"
 TRAY_CMD_NAME = "pet-tray-cmd.json"
 
@@ -88,7 +88,7 @@ def _pid_alive(pid: int) -> bool:
         finally:
             kernel32.CloseHandle(handle)
     except Exception:
-        #查不了就当作还活着，避免把用户正在用的桌宠误判掉。
+
         return True
 
 
@@ -126,8 +126,8 @@ def run_tray(data_dir: Path, icon_path: Path) -> int:
     size_menu = menu.addMenu("桌宠大小")
     group = QActionGroup(menu)
     group.setExclusive(True)
-    #档位文字在这里写死与 PET_SIZES 对应；托盘进程不导入 desktop_pet，
-    #以免为了三个数字把整个 QtQuick 依赖拖进来。
+
+
     size_actions = {}
     for tier, label in (("S", "小 160×230"), ("M", "中 240×345"), ("L", "大 320×460")):
         action = QAction(label, menu)
@@ -145,7 +145,7 @@ def run_tray(data_dir: Path, icon_path: Path) -> int:
     tray.setContextMenu(menu)
 
     def on_activated(reason):
-        #左键单击 = 显示/隐藏开关（用户直觉）。双击在 Windows 上也会先来一个 Trigger。
+
         if reason in (QSystemTrayIcon.ActivationReason.Trigger,
                       QSystemTrayIcon.ActivationReason.DoubleClick):
             write_command(data_dir, "toggle")
@@ -165,7 +165,7 @@ def run_tray(data_dir: Path, icon_path: Path) -> int:
             action = size_actions.get(tier)
             if action is not None and not action.isChecked():
                 action.setChecked(True)
-        #桌宠没了就一起退出，别在托盘里留个孤儿图标。
+
         if state and not _pid_alive(int(state.get("pid") or 0)):
             tray.hide()
             app.quit()

@@ -26,18 +26,25 @@ def test_initial_folder_only_selects_without_restricting_root(monkeypatch):
         return True
     freed = []
     fake = SimpleNamespace(
-        ole32=SimpleNamespace(OleInitialize=NativeCall(lambda _: 0), CoTaskMemFree=NativeCall(freed.append)),
+        ole32=SimpleNamespace(OleInitialize=NativeCall(lambda _: 0), OleUninitialize=NativeCall(lambda: observed.update(uninitialized=True)), CoTaskMemFree=NativeCall(freed.append)),
         shell32=SimpleNamespace(SHBrowseForFolderW=NativeCall(browse), SHGetPathFromIDListW=NativeCall(selected)),
         user32=SimpleNamespace(SendMessageW=NativeCall(send)))
     monkeypatch.setattr(ctypes, 'windll', fake)
     assert browse_for_directory('选择草稿目录', 'C:\\默认目录') == 'F:\\自由选择\\剪映草稿'
-    assert observed == {'root': None, 'message': 0x467, 'by_path': 1, 'initial': 'C:\\默认目录'}
+    assert observed == {'root': None, 'message': 0x467, 'by_path': 1, 'initial': 'C:\\默认目录', 'uninitialized': True}
     assert freed == [42]
 
 def test_folder_picker_cancel(monkeypatch):
     fake = SimpleNamespace(
-        ole32=SimpleNamespace(OleInitialize=NativeCall(lambda _: 0), CoTaskMemFree=NativeCall(lambda _: None)),
+        ole32=SimpleNamespace(OleInitialize=NativeCall(lambda _: 0), OleUninitialize=NativeCall(lambda: None), CoTaskMemFree=NativeCall(lambda _: None)),
         shell32=SimpleNamespace(SHBrowseForFolderW=NativeCall(lambda _: None), SHGetPathFromIDListW=NativeCall(lambda *_: False)),
         user32=SimpleNamespace(SendMessageW=NativeCall(lambda *_: 0)))
     monkeypatch.setattr(ctypes, 'windll', fake)
     assert browse_for_directory('选择草稿目录') == ''
+
+
+def test_folder_picker_reports_initialization_failure(monkeypatch):
+    fake=SimpleNamespace(ole32=SimpleNamespace(OleInitialize=NativeCall(lambda _: -2147417850)),shell32=SimpleNamespace())
+    monkeypatch.setattr(ctypes, 'windll', fake)
+    with pytest.raises(RuntimeError, match='初始化失败'):
+        browse_for_directory()

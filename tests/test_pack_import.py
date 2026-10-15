@@ -60,7 +60,7 @@ class PackImportTest(unittest.TestCase):
             src = make_pack(Path(tmp), "外链包")
             entry = pack_import.add_link(links, src)
             self.assertEqual(entry["name"], "外链包")
-            #重复添加幂等
+
             pack_import.add_link(links, src)
             self.assertEqual(len(pack_import.load_links(links)), 1)
             self.assertTrue(pack_import.remove_link(links, "外链包"))
@@ -70,13 +70,13 @@ class PackImportTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             packs = Path(tmp) / "sprite-packs"
             packs.mkdir()
-            make_pack(packs.parent, "内置包")  #不在 packs 下，手动建
+            make_pack(packs.parent, "内置包")
             builtin = packs / "内置包"
             (builtin / "games").mkdir(parents=True)
             links = Path(tmp) / "pack-links.json"
             ext = make_pack(Path(tmp), "外链包")
             pack_import.add_link(links, ext)
-            #链接与内置重名 → 跳过
+
             dup = make_pack(Path(tmp), "dup") / "x"
             roots = pack_import.iter_pack_roots(packs, links)
             names = [n for n, _p, _s in roots]

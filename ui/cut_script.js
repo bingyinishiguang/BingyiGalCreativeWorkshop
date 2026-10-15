@@ -9,7 +9,7 @@
  const button=document.createElement('button');button.id='studio-script';button.textContent='台词校对';button.onclick=()=>open();$('studio-project-settings').before(button);
  const changed=()=>{$('script-reviewed').checked=false;schedule=[];$('script-schedule').replaceChildren();$('script-status').textContent='校对表已修改，重新铺轨后时间轴才会更新。';editor.markDirty();};
  const key=()=>crypto.randomUUID();
- const blank=(text='请输入台词',kind='narrator',character='')=>({id:key(),text,kind,character,voice:['heroine','inner'].includes(kind),voiceExplicit:false,audio:'',hold:3,holdExplicit:false,pause:null});
+ const blank=(text='请输入台词',kind='narrator',character='')=>({id:key(),text,kind,character,voice:['dialogue','hero','heroine','inner'].includes(kind),voiceExplicit:false,audio:'',hold:3,holdExplicit:false,pause:null});
  const binding=r=>({id:r.audio,text:String(r.text??'').trim(),character:String(r.character??'').trim()});
  const needsAudioReview=r=>{const expected=binding(r);return Boolean(r.audio&&['id','text','character'].some(k=>r.audioBinding?.[k]!==expected[k]));};
  function expressions(){const base=scriptBase||editor.scenes[editor.activeScene];const options=[];
@@ -32,7 +32,7 @@
     else if(field==='voice'){r.voice=node.checked;r.voiceExplicit=true;}
     else if(field==='audio'){r.audio=node.value;delete r.take;if(r.audio)r.audioBinding=binding(r);else delete r.audioBinding;$('script-audition').pause();}
     else if(field==='hold'||field==='pause'){if(field==='hold')r.holdExplicit=true;const n=node.value===''&&field==='pause'?null:Number(node.value);if(n!==null&&(!Number.isFinite(n)||n<(field==='hold'?.1:0)||n>(field==='hold'?3590:10))){$('script-status').textContent='请检查停留与停顿秒数';render();return;}r[field]=n;}
-    else {r[field]=node.value;if(field==='kind'&&!r.voiceExplicit)r.voice=['heroine','inner'].includes(r.kind);}
+    else {r[field]=node.value;if(field==='kind'&&!r.voiceExplicit)r.voice=['dialogue','hero','heroine','inner'].includes(r.kind);}
     changed();render();
    });
    tr.querySelectorAll('[data-action]').forEach(node=>node.onclick=()=>{const action=node.dataset.action;

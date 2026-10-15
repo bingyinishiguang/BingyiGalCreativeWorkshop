@@ -4,18 +4,21 @@ import os
 
 import PyInstaller
 from PyInstaller.utils.hooks import collect_all
+from tools.build_picker_icon import build as build_picker_icon
 
-#PyInstaller 6 起，onedir 的私有运行库目录默认叫 `_internal`。
+build_picker_icon()
+
+
 CONTENTS_DIR = (
     {"contents_directory": "runtime"}
     if int(PyInstaller.__version__.split(".")[0]) >= 6
     else {}
 )
 
-datas = [("ui", "ui"), ("licenses", "licenses")]
+datas = [("ui", "ui"), ("licenses", "licenses"), ("assistant_asr_worker.py", "."), ("draft_codec_worker.py", ".")]
 binaries = []
-#pythonnet（clr）是 pywebview 在 Windows 上的 UI 线程封送（Form.Invoke）依赖，
-#显式加入 hiddenimports，避免打包版缺失导致拖动/缩放失效。
+
+
 hiddenimports = ["clr", "pythonnet"]
 
 if os.path.isdir("brand-assets"):
@@ -30,7 +33,7 @@ try:
 except Exception:
     pass
 
-#草稿生成模板 JSON 与 MediaInfo 动态库必须随冻结版打包。
+
 for production_package in ("pyJianYingDraft", "pymediainfo"):
     production_datas, production_binaries, production_hiddenimports = collect_all(production_package)
     datas += production_datas
@@ -53,7 +56,7 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-#新默认入口：「冰翼取用精灵」（PySide6/QML 桌宠 + 立绘总览）。
+
 a_pet = Analysis(
     ["desktop_pet.py"],
     pathex=[],
@@ -68,7 +71,7 @@ a_pet = Analysis(
 )
 pyz_pet = PYZ(a_pet.pure)
 
-#tkinter 取用窗暂时保留为兼容兜底，不再是主入口。
+
 a_picker = Analysis(
     ["floating_picker.py"],
     pathex=[],
@@ -83,8 +86,8 @@ a_picker = Analysis(
 )
 pyz_picker = PYZ(a_picker.pure)
 
-#Qt 6 使用 Windows 自带 ICU。PATH 中 Poppler 的同名 DLL 依赖 icudt78，
-#收入运行目录会遮蔽系统 ICU，导致 QtCore 在启动时无法加载。
+
+
 for analysis in (a, a_pet, a_picker):
     analysis.binaries = [entry for entry in analysis.binaries
                          if os.path.basename(entry[0]).lower() != "icuuc.dll"]
@@ -128,7 +131,7 @@ exe_pet = EXE(
     strip=False,
     upx=False,
     console=False,
-    icon=icon,
+    icon="ui/picker-icon.ico",
     **CONTENTS_DIR,
 )
 coll = COLLECT(

@@ -87,7 +87,7 @@ def test_unsafe_member_is_not_written(tmp_path):
     with pytest.raises(ValueError):
         pack_import.extract_zip(archive, packs, "好")
     assert not escape.exists(), "解压逃出了目标目录！"
-    #失败时必须清理临时目录，不留残渣
+
     assert [p.name for p in packs.iterdir()] == []
 
 

@@ -28,7 +28,7 @@ class AppSettings:
             try:
                 raw = self.file.read_text(encoding="utf-8")
             except OSError:
-                #读取失败不等于文件损坏；保留设置文件，仅本次使用默认值。
+
                 self.values = self._defaults()
             if raw is not None:
                 try:
@@ -101,7 +101,7 @@ class AppSettings:
 
     def save(self, values: dict) -> dict[str, str]:
         normalized = self._normalize(values)
-        #单张保存目录留空是合法状态：表示用默认落盘目录（<数据目录>\exports\Single\）。
+
         if normalized["singleMode"] == "folder" and normalized["singlePath"]:
             self._validate_directory(normalized["singlePath"], "单张保存目录")
         if normalized["batchPath"]:
@@ -118,8 +118,8 @@ class AppSettings:
                 self.values = normalized
             finally:
                 temporary.unlink(missing_ok=True)
-        #拖出目录换位置：把已拖出的文件搬过去（旧目录保留）。剪映按路径引用旧文件，
-        #所以调用方要把 movedDragFiles > 0 显示成"剪映里需要重新链接素材"。
+
+
         new_drag = self.drag_directory()
         moved = 0
         if old_drag != new_drag:
@@ -137,7 +137,7 @@ class AppSettings:
         values = self.snapshot()
         if values["singleMode"] != "folder":
             raise ValueError("单张导出当前由浏览器管理")
-        #留空 = 用默认落盘目录（<数据目录>\exports\Single\），而不是报错让用户先去设置。
+
         raw = values["singlePath"]
         if not raw:
             self.default_single.mkdir(parents=True, exist_ok=True)
@@ -192,8 +192,8 @@ class AppSettings:
         if not selected:
             return None
         if target == "drag":
-            #拖出目录必须是已存在且可写的目录；换位置时的搬运与"剪映需重新链接"的
-            #提示由调用方负责（见 /api/settings 的 dragPath 处理）。
+
+
             return self._validate_directory(selected, "拖出文件夹")
         return self._validate_directory(selected, "保存目录")
 
@@ -208,6 +208,8 @@ def browse_for_directory(title: str = "选择文件夹", initial: str | None = N
     """通过 Win32 选择目录，允许从默认位置切换磁盘；取消时返回空串。"""
     if os.name != "nt":
         return ""
+    initialized = False
+    ole32 = None
     try:
         import ctypes
         from ctypes import wintypes
@@ -217,10 +219,12 @@ def browse_for_directory(title: str = "选择文件夹", initial: str | None = N
 
         ole32.OleInitialize.argtypes = [ctypes.c_void_p]
         ole32.OleInitialize.restype = ctypes.c_long
-        try:
-            ole32.OleInitialize(None)
-        except Exception:
-            pass
+        result = ole32.OleInitialize(None)
+        if result not in (0, 1):
+            raise RuntimeError(f'系统文件夹选择框初始化失败（错误 0x{result & 0xffffffff:08X}）。')
+        initialized = True
+        ole32.OleUninitialize.argtypes = []
+        ole32.OleUninitialize.restype = None
 
         class BrowseInfo(ctypes.Structure):
             _fields_ = (
@@ -262,7 +266,7 @@ def browse_for_directory(title: str = "选择文件夹", initial: str | None = N
                                     ctypes.cast(initial_buffer, ctypes.c_void_p))
             return 0
 
-        #260 会截断深度较长的中文目录，返回一个「看似存在」的残缺路径；放宽到 4096。
+
         display_name = ctypes.create_unicode_buffer(4096)
         info = BrowseInfo(
             hwndOwner=0,
@@ -278,10 +282,16 @@ def browse_for_directory(title: str = "选择文件夹", initial: str | None = N
         if not pidl:
             return ""
         path_buffer = ctypes.create_unicode_buffer(4096)
-        selected = ""
-        if shell32.SHGetPathFromIDListW(pidl, path_buffer):
-            selected = path_buffer.value
-        ole32.CoTaskMemFree(pidl)
-        return selected
-    except Exception:
-        return ""
+        try:
+            if not shell32.SHGetPathFromIDListW(pidl, path_buffer):
+                raise ValueError('所选位置不是本机文件夹，请选择磁盘中的目录。')
+            return path_buffer.value
+        finally:
+            ole32.CoTaskMemFree(pidl)
+    except (RuntimeError, ValueError):
+        raise
+    except Exception as error:
+        raise RuntimeError('系统文件夹选择失败，请重试：' + str(error)) from error
+    finally:
+        if initialized:
+            ole32.OleUninitialize()

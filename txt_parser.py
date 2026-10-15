@@ -9,7 +9,7 @@ from typing import Iterable
 
 from PIL import Image
 
-#画布是直接 `Image.new("RGBA", canvas)` 分配的，而坐标文件可能来自第三方素材包。
+
 MAX_CANVAS_SIDE = 20000
 MAX_CANVAS_PIXELS = 40_000_000
 
@@ -104,7 +104,7 @@ def parse_coordinates(path: Path) -> tuple[tuple[int, int], dict[str, TxtLayer]]
             group_names[fields[9]] = fields[1]
     if canvas is None:
         raise ValueError(f"坐标文件缺少画布尺寸：{path}")
-    #画布是直接 `Image.new("RGBA", canvas)` 分配的，而这份坐标文件可能来自
+
     if not (1 <= canvas[0] <= MAX_CANVAS_SIDE and 1 <= canvas[1] <= MAX_CANVAS_SIDE):
         raise ValueError(
             f"坐标文件的画布尺寸不合理（{canvas[0]}×{canvas[1]}），"

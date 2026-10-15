@@ -36,8 +36,8 @@ def test_split_multi_empty():
 
 def test_browse_reads_raw_buffer_not_value():
     source = (ROOT / "file_dialog.py").read_text(encoding="utf-8")
-    #只看"读取解析结果"这一处：文件里另有一处 `buffer.value = initial_dir`
-    #是写入初始目录，那是合法用法，不能一起禁掉。
+
+
     assert "_split_multi(buffer.value)" not in source, (
         "多选解析不能用 buffer.value（遇第一个 NUL 就截断，只会拿到目录）"
     )

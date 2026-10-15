@@ -1,0 +1,90 @@
+[
+  {
+    "id": "kit:sprite-1",
+    "kind": "sprite",
+    "name": "冰翼 · 微笑",
+    "emotion": "微笑",
+    "filename": "bingyi-1.png"
+  },
+  {
+    "id": "kit:sprite-2",
+    "kind": "sprite",
+    "name": "冰翼 · 开心",
+    "emotion": "开心",
+    "filename": "bingyi-2.png"
+  },
+  {
+    "id": "kit:sprite-3",
+    "kind": "sprite",
+    "name": "冰翼 · 害羞",
+    "emotion": "害羞",
+    "filename": "bingyi-3.png"
+  },
+  {
+    "id": "kit:sprite-4",
+    "kind": "sprite",
+    "name": "冰翼 · 惊讶",
+    "emotion": "惊讶",
+    "filename": "bingyi-4.png"
+  },
+  {
+    "id": "kit:sprite-5",
+    "kind": "sprite",
+    "name": "冰翼 · 难过",
+    "emotion": "难过",
+    "filename": "bingyi-5.png"
+  },
+  {
+    "id": "kit:sprite-6",
+    "kind": "sprite",
+    "name": "冰翼 · 生气",
+    "emotion": "生气",
+    "filename": "bingyi-6.png"
+  },
+  {
+    "id": "kit:studio-day",
+    "kind": "background",
+    "name": "工作室 · 上午",
+    "filename": "studio-day.png"
+  },
+  {
+    "id": "kit:studio-night",
+    "kind": "background",
+    "name": "工作室 · 夜间",
+    "filename": "studio-night.png"
+  },
+  {
+    "id": "kit:window-night",
+    "kind": "background",
+    "name": "窗边 · 夜间",
+    "filename": "window-night.png"
+  },
+  {
+    "id": "kit:day",
+    "kind": "background",
+    "name": "日间无字过场",
+    "filename": "day.png",
+    "purpose": "eyecatch"
+  },
+  {
+    "id": "kit:night",
+    "kind": "background",
+    "name": "月夜无字过场",
+    "filename": "night.png",
+    "purpose": "eyecatch"
+  },
+  {
+    "id": "kit:time-card-day",
+    "kind": "background",
+    "name": "日间无字时间卡",
+    "filename": "time-card-day.png",
+    "purpose": "time_card_blank"
+  },
+  {
+    "id": "kit:time-card-night",
+    "kind": "background",
+    "name": "月夜无字时间卡",
+    "filename": "time-card-night.png",
+    "purpose": "time_card_blank"
+  }
+]

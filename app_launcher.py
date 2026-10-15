@@ -30,8 +30,8 @@ def _append_shell_flag(url: str) -> str:
 
 WINDOW_WIDTH = 1564
 WINDOW_HEIGHT = 912
-#小屏笔记本的兜底：1366x768 的机器工作区只有约 1366x728，放不下 1564x912。
-#硬用会超出屏幕，右侧按钮和面板点不到，用户会以为软件坏了。
+
+
 WINDOW_MARGIN = 24
 MIN_WINDOW_WIDTH = 960
 MIN_WINDOW_HEIGHT = 640
@@ -73,7 +73,7 @@ def _target_size() -> tuple[int, int]:
     _left, _top, work_w, work_h = _work_area()
     width = min(WINDOW_WIDTH, max(MIN_WINDOW_WIDTH, work_w - WINDOW_MARGIN))
     height = min(WINDOW_HEIGHT, max(MIN_WINDOW_HEIGHT, work_h - WINDOW_MARGIN))
-    #极小屏再兜一层：无论如何不能超过工作区，否则又跑到屏幕外面去
+
     width = max(MIN_WINDOW_WIDTH // 2, min(width, work_w))
     height = max(MIN_WINDOW_HEIGHT // 2, min(height, work_h))
     return int(width), int(height)
@@ -102,7 +102,7 @@ def _centered_position(width: int, height: int) -> tuple[int, int] | None:
         class Rect(ctypes.Structure):
             _fields_ = (("left", c_long), ("top", c_long), ("right", c_long), ("bottom", c_long))
 
-        SPI_GETWORKAREA = 0x0030  #曾误写 0x0048：SystemParametersInfoW 直接返回 0，窗口永远不居中
+        SPI_GETWORKAREA = 0x0030
         user32 = ctypes.windll.user32
         user32.SystemParametersInfoW.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
         user32.SystemParametersInfoW.restype = ctypes.c_int
@@ -133,13 +133,13 @@ class WindowChromeApi:
 
     def __init__(self, log_path: Path | None = None) -> None:
         self._window = None
-        #显式注入日志路径的调用方（测试）只写自己的文件；未注入时写数据目录。
+
         self._log_path = Path(log_path) if log_path is not None else None
-        #设 BINGYI_DEBUG=1 可恢复全量输出（排查桌面壳问题时才需要）。
+
         self._debug = str(os.environ.get("BINGYI_DEBUG", "")).strip() not in ("", "0", "false")
 
     def bind(self, window) -> None:
-        #桥接对象只暴露方法；公开对象属性会触发 pywebview 递归遍历。
+
         self._window = window
 
     def _log(self, message: str, level: str = "info") -> None:
@@ -265,8 +265,8 @@ class WindowChromeApi:
         self._run_on_ui_thread(apply)
 
     def configure_native_window(self) -> None:
-        #shown 事件由 pywebview 的工作线程分发。样式、尺寸和布局必须在同一
-        #UI 线程顺序执行，防止原生 frame 重算与 WebView Dock 布局交错。
+
+
         if sys.platform == "win32":
             self._run_on_ui_thread(self._configure_native_window)
 
@@ -311,7 +311,7 @@ class WindowChromeApi:
         dwmapi.DwmSetWindowAttribute.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
         dwmapi.DwmSetWindowAttribute.restype = ctypes.c_long
 
-        #在窗口样式重算后消除 DWM 非客户区残条。
+
         try:
             extend = dwmapi.DwmExtendFrameIntoClientArea
             extend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
@@ -329,21 +329,21 @@ class WindowChromeApi:
             policy = c_int(DWMNCRP_ENABLED)
             hr = dwmapi.DwmSetWindowAttribute(c_void_p(hwnd), DWMWA_NCRENDERING_POLICY, byref(policy), 4)
             self._log(f"DwmSetWindowAttribute(NCRENDERING=ENABLED) hr=0x{hr & 0xFFFFFFFF:08X}", level="debug")
-            #关键：扩框必须在之后再来一次 SWP_FRAMECHANGED 触发重算，
+
             user32.SetWindowPos(c_void_p(hwnd), None, 0, 0, 0, 0, 0x0027)
             self._log("扩框后已重触发 SWP_FRAMECHANGED", level="debug")
         except Exception as exc:
             self._log(f"扩框消除黑边失败: {exc}")
 
         try:
-            #DWMWA_CAPTION_COLOR(35)：消除顶部 ~7px 的 DWM 标题栏残条（浅色主题下的「黑边」）。
-            #默认按深色页头着色，前端加载后会立刻用当前主题的真实颜色覆盖（见 set_caption_color）。
+
+
             hr = _set_caption_color(hwnd, DARK_CAPTION_COLOR)
             self._log(f"DwmSetWindowAttribute(标题栏色35={DARK_CAPTION_COLOR}) hr=0x{hr & 0xFFFFFFFF:08X}", level="debug")
         except Exception as exc:
             self._log(f"设置标题栏色失败: {exc}")
 
-        #以物理像素设置窗口边界，避免 DPI 与客户区换算偏差。
+
         target_w, target_h = _target_size()
         limits = self.fit_workspace()
         target_w, target_h = max(target_w, limits["width"]), max(target_h, limits["height"])
@@ -360,13 +360,13 @@ class WindowChromeApi:
                       f"（用户目标 {WINDOW_WIDTH}x{WINDOW_HEIGHT}，工作区自适应）")
 
         try:
-            corner = c_int(2)  #DWMWCP_ROUND（Win11 圆角）
+            corner = c_int(2)
             hr = dwmapi.DwmSetWindowAttribute(c_void_p(hwnd), 33, byref(corner), 4)
             self._log(f"DwmSetWindowAttribute(圆角33=2) hr=0x{hr & 0xFFFFFFFF:08X}", level="debug")
         except Exception as exc:
             self._log(f"DwmSetWindowAttribute(圆角) 异常: {exc}", level="debug")
         try:
-            border = c_long(0x00EAB87E)  #COLORREF #7eb8ea（冰蓝，仅 Win11 22000+ 生效）
+            border = c_long(0x00EAB87E)
             hr = dwmapi.DwmSetWindowAttribute(c_void_p(hwnd), 34, byref(border), 4)
             self._log(f"DwmSetWindowAttribute(边框色34) hr=0x{hr & 0xFFFFFFFF:08X}", level="debug")
         except Exception as exc:
@@ -525,7 +525,7 @@ class WindowChromeApi:
 
         if self._run_on_ui_thread(action):
             return bool(opened)
-        #备选：PostMessageW 投递 WM_SYSCOMMAND/SC_MOUSEMENU，由 UI 线程弹出系统菜单。
+
         try:
             lparam = ((int(y) & 0xFFFF) << 16) | (int(x) & 0xFFFF)
             posted = ctypes.windll.user32.PostMessageW(c_void_p(hwnd), 0x0112, 0xF090, lparam)
@@ -540,7 +540,7 @@ def _start_server(open_browser: bool) -> int:
     return sprite_composer.main(["--no-browser"] if not open_browser else [])
 
 
-#页头顶色：用来给 DWM 标题栏残条上色，使其与页面同色而隐形（见 set_caption_color）。
+
 DARK_CAPTION_COLOR = "#102136"
 LIGHT_CAPTION_COLOR = "#ffffff"
 DWMWA_CAPTION_COLOR = 35
@@ -550,7 +550,7 @@ def _set_caption_color(hwnd: int, color: str) -> int:
     """把窗口标题栏（DWM 残条）颜色设为给定 #RRGGBB，返回 DWM 的 HRESULT。"""
     raw = str(color).lstrip("#")
     r, g, b = int(raw[0:2], 16), int(raw[2:4], 16), int(raw[4:6], 16)
-    colorref = c_long((b << 16) | (g << 8) | r)  #DWM 用 COLORREF(0x00BBGGRR)，不是 RGB
+    colorref = c_long((b << 16) | (g << 8) | r)
     return ctypes.windll.dwmapi.DwmSetWindowAttribute(
         c_void_p(hwnd), DWMWA_CAPTION_COLOR, byref(colorref), 4)
 
@@ -596,7 +596,7 @@ def _log_error(exc: BaseException) -> str | None:
 
 def _notify_user(exc: BaseException, log_path: str | None) -> None:
     """尽量给用户可见提示，并回退到浏览器网页版保证界面可用。"""
-    #优先用 tkinter 弹窗提示（tkinter 不可用时静默跳过）。
+
     log_hint = f"\n\n详细日志已写入：{log_path}" if log_path else "\n\n（日志写入失败）"
     try:
         import tkinter.messagebox as messagebox
@@ -609,7 +609,7 @@ def _notify_user(exc: BaseException, log_path: str | None) -> None:
     except Exception:
         pass
 
-    #回退：优先复用已启动的服务器地址，避免重复起服务；否则用浏览器打开完整网页版。
+
     try:
         import webbrowser
 
@@ -650,7 +650,7 @@ def _run() -> int:
         options = {"width": round(width / scale), "height": round(height / scale),
                    "min_size": (int(min_w / scale), int(min_h / scale)),
                    "background_color": "#07111f", "text_select": True}
-        #pywebview 会应用 DPI 缩放，这里先转换为逻辑像素。
+
         centered = _centered_position(width, height)
         if centered:
             options["x"] = round(centered[0] / scale)
@@ -679,6 +679,14 @@ def _run() -> int:
 
 
 def main() -> int:
+    if sys.argv[1:2] == ['--draft-codec-worker']:
+        # Run the native adapter in a child process without creating a UI.
+        try:
+            from draft_codec_worker import main as codec_main
+            codec_main(sys.argv[2:])
+            return 0
+        except Exception:
+            return 1
     try:
         return _run()
     except Exception as exc:

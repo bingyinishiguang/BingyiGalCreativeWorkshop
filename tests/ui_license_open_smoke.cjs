@@ -25,7 +25,7 @@ const { chromium } = e2e;
   await page.click('[data-settings-open="panel-about"]');
   await page.waitForTimeout(300);
 
-  //等待响应完成再读取结果，避免异步回调尚未结束。
+
   const [response] = await Promise.all([
     page.waitForResponse(r => r.url().includes('/api/settings/open-folder'),
                          { timeout: 20000 }),

@@ -134,11 +134,17 @@ body.compact-shell .library-tile-image img { width:94%; height:94%; object-fit:c
 body.compact-shell .library-detail-image { height:auto; min-height:0; aspect-ratio:1122/1402; }
 body.compact-shell #library-detail-preview { object-fit:contain; object-position:center; }
 body.compact-shell .library-detail-actions { flex-wrap:wrap; }
-body.compact-shell .tools-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr)); gap:16px; }
-body.compact-shell .tool-card { min-width:0; min-height:180px; padding:24px; grid-template-columns:72px minmax(0,1fr); column-gap:18px; }
-body.compact-shell .tool-icon { width:72px; height:72px; font-size:42px; }
-body.compact-shell .tool-card strong { font-size:clamp(18px,1.7vw,25px); overflow-wrap:anywhere; }
+body.compact-shell .tools-page { width:min(1040px,calc(100% - 48px)); margin-inline:auto; }
+body.compact-shell .tools-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+body.compact-shell .tool-card { min-width:0; min-height:130px; padding:20px; grid-template-columns:52px minmax(0,1fr); column-gap:16px; }
+body.compact-shell .tool-icon { width:52px; height:52px; font-size:32px; }
+body.compact-shell .tool-card strong { font-size:clamp(18px,1.5vw,22px); overflow-wrap:anywhere; }
 body.compact-shell .tool-card small { max-width:none; }
+.tools-section-title{grid-column:1/-1;margin:12px 0 0;font-size:15px;color:#aac8df}
+.workflow-note{padding:10px 14px;border-left:3px solid #6bb6e3;background:#122b40;font-size:13px;line-height:1.6;color:#bad9ef}
+#tts-advanced{margin:14px 0;border:1px solid #294359;border-radius:6px;padding:12px}
+#tts-advanced summary{cursor:pointer;font-size:13px}
+body.compact-shell .tools-heading h2{font-size:26px}
 body.compact-shell .editor-directory-bar { flex:none; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:6px 12px; padding:8px 12px; border:1px solid var(--compact-line); border-radius:6px; background:var(--compact-surface); }
 body.compact-shell .editor-directory-bar>label { font-size:12px; white-space:nowrap; }
 body.compact-shell .editor-directory-bar>.production-actions { min-width:0; margin:0; display:flex; flex-wrap:nowrap; gap:8px; }
@@ -152,6 +158,8 @@ body.compact-shell .editor-directory-bar>small { grid-column:1/-1; font-size:11p
   body.compact-shell .library-detail { grid-column:2; grid-row:2; }
 }
 @container workshop (max-width:719px) {
+  body.compact-shell .tools-page { width:calc(100% - 28px); }
+  body.compact-shell .tools-grid { grid-template-columns:minmax(0,1fr); }
   body.compact-shell .library-page { display:flex; flex-direction:column; overflow:auto; }
   body.compact-shell .library-filters { flex:none; overflow:visible; }
   body.compact-shell .library-results { flex:none; min-height:300px; }

@@ -2,7 +2,38 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
+
+
+END_MARKS = '，,。．.!！?？;；:：、…'
+CLOSERS = '\"\'”’」』）》】〕〉）)]}'
+
+
+def format_subtitle(text):
+    """Keep clause commas, remove end-of-cue sentence marks, preserve decimals/quotes."""
+    text = str(text).strip()
+    # A closing quote/bracket is structural: remove the sentence mark inside it.
+    suffix = ''
+    while text and (text[-1] in END_MARKS or text[-1] in CLOSERS or text[-1].isspace()):
+        char, text = text[-1], text[:-1]
+        if char in CLOSERS:
+            suffix = char + suffix
+    text += suffix
+    text = re.sub(r'[，,。．！？!?；;]+', '，', text)
+    text = re.sub(r'(?<!\d)\.(?!\d)', '，', text)
+    text = re.sub(r'，\s*，', '，', text)
+    return text.strip()
+
+
+def normalize_subtitle_cues(cues):
+    clean = []
+    for cue in cues:
+        row = {**cue, 'text': format_subtitle(cue['text'])}
+        if not row['text'] or not any(not unicodedata.category(c).startswith(('P', 'Z')) for c in row['text']):
+            raise ValueError('字幕不能仅由标点组成，请核对原文')
+        clean.append(row)
+    return clean
 
 
 def read_text(path):
@@ -50,6 +81,16 @@ def parse_srt(text):
     return cues
 
 
+def to_srt(cues):
+    def stamp(seconds):
+        milliseconds = round(seconds * 1000)
+        hours, rest = divmod(milliseconds, 3_600_000)
+        minutes, rest = divmod(rest, 60_000)
+        secs, ms = divmod(rest, 1000)
+        return f'{hours:02}:{minutes:02}:{secs:02},{ms:03}'
+    return '\n\n'.join(f'{i+1}\n{stamp(c["start"])} --> {stamp(c["end"])}\n{c["text"]}' for i,c in enumerate(cues))+'\n'
+
+
 def validate_cues(cues, duration):
     if not isinstance(cues, list) or len(cues) > 10000:
         raise ValueError('字幕数量或格式不正确')
@@ -57,7 +98,7 @@ def validate_cues(cues, duration):
     for cue in cues:
         try:
             start, end = float(cue['start']), float(cue['end'])
-            text = str(cue['text']).strip()
+            text = format_subtitle(cue['text'])
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError('字幕格式不正确') from error
         if not (0 <= start < end <= duration+.05) or not text or len(text) > 2000:

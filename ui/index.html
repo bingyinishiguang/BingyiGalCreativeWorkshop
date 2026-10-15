@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="/ui/production.css">
   <link rel="stylesheet" href="/ui/configuration_workspace.css">
   <link rel="stylesheet" href="/ui/compact_shell.css">
+  <link rel="stylesheet" href="/ui/ai_assistant.css">
+  <link rel="stylesheet" href="/ui/existing_draft.css">
   <script>document.documentElement.setAttribute('data-theme','dark')</script>
   <script src="/ui/app.js" defer></script>
   <script src="/ui/cut_validation.js" defer></script>
@@ -31,9 +33,14 @@
   <script src="/ui/draft_workflow.js" defer></script>
   <script src="/ui/column_workflow.js" defer></script>
   <script src="/ui/configuration_workspace.js" defer></script>
+  <script src="/ui/ai_assistant.js" defer></script>
+  <script src="/ui/manuscript_review.js" defer></script>
+  <script src="/ui/existing_draft.js" defer></script>
+  <link rel="stylesheet" href="/ui/gal_story.css">
+  <script src="/ui/gal_story.js" defer></script>
 </head>
 <body class="compact-shell">
-  <!--启动页面先显示，扫描在后台进行。-->
+
   <div id="boot-overlay" class="boot-overlay">
     <div class="boot-card">
       <div class="boot-portrait">
@@ -56,13 +63,13 @@
         <div class="brand-copy">
           <div class="brand-title-row">
             <h1>冰翼Gal创作工坊</h1>
-            <!--版本标签来自品牌配置。-->
+
             <span id="app-version" class="app-version"></span>
           </div>
         </div>
       </div>
       <nav class="app-nav" aria-label="主页面">
-        <!--素材库入口与制作工具分开，保持操作目的明确。-->
+
         <button id="nav-workbench" class="nav-tab active" type="button" aria-current="page">合成工作台</button>
         <button id="nav-library" class="nav-tab" type="button">立绘库</button>
         <button id="nav-backgrounds" class="nav-tab" type="button">背景库</button>
@@ -90,7 +97,7 @@
       </div>
     </header>
 
-    <!--内测期限提示条：只在「已过期」或「进入提醒窗口」时出现。-->
+
     <div id="beta-notice" class="beta-notice" role="status" aria-live="polite" hidden>
       <span id="beta-notice-text"></span>
       <button id="beta-notice-close" class="beta-notice-close" type="button" aria-label="关闭提示">×</button>
@@ -160,7 +167,7 @@
       </section>
 
       <aside class="action-panel" aria-label="导出操作">
-        <!--两张对称操作卡：单张两个动作、批量两个动作。-->
+
         <section class="action-card panel-surface">
           <span class="eyebrow">SINGLE</span>
           <h2>单张处理</h2>
@@ -188,7 +195,7 @@
         <div class="panel-heading"><span class="eyebrow">LIBRARY</span><h2>查找立绘</h2></div>
         <div class="library-view-switch" role="group" aria-label="图库区域"><button id="library-view-active" class="active" type="button">图库</button><button id="library-view-trash" type="button">回收站</button></div>
         <div class="field"><label for="library-search">搜索</label><input id="library-search" type="search" placeholder="名称、备注、标签、作品或角色" autocomplete="off"></div>
-        <!--收藏筛选与其他筛选条件放在一起。-->
+
         <label class="library-check library-check-inline"><input id="library-favorite" type="checkbox">只看收藏</label>
         <div class="field"><label for="library-game">作品</label><select id="library-game"><option value="">全部作品</option></select></div>
         <div class="field"><label for="library-character">角色</label><select id="library-character"><option value="">全部角色</option></select></div>
@@ -231,7 +238,7 @@
       </aside>
     </main>
 
-    <!--工具箱只展示当前真正可用的能力。-->
+
     <main id="tools-page" class="tools-page" hidden>
       <div class="tools-heading">
         <span class="eyebrow">TOOLBOX</span>
@@ -239,6 +246,12 @@
         <p>这里放顶部导航栏没有的功能，不与「立绘库」重复。</p>
       </div>
       <div class="tools-grid">
+        <h3 class="tools-section-title">制作新作品</h3>
+        <button id="open-gal-story" class="tool-card" type="button" data-goto="gal-story">
+          <span class="tool-icon" aria-hidden="true">✦</span>
+          <strong>Galgame剧情生成器</strong>
+          <small>从剧本开始 → 安排人物与声音 → 预览并生成剪映草稿</small>
+        </button>
         <button id="open-localtts" class="tool-card" type="button" data-goto="localtts">
           <span class="tool-icon" aria-hidden="true">♫</span>
           <strong>语音配音</strong>
@@ -249,10 +262,14 @@
           <strong>剪映自动粗剪</strong>
           <small>批量安排背景与立绘，生成可继续精剪的剪映草稿</small>
         </button>
+        <h3 class="tools-section-title">继续编辑与取用素材</h3>
+        <button id="open-existing-draft" class="tool-card" type="button" data-goto="existing-draft">
+          <span class="tool-icon" aria-hidden="true">✎</span>
+          <strong>已有剪映草稿修改</strong>
+          <small>从已有草稿开始 → 校对字幕或修复素材 → 输出修改副本</small>
+        </button>
         <button class="tool-card" type="button" data-open-picker data-status="picker-status">
-          <span class="tool-icon" aria-hidden="true">
-            <img class="tool-icon-round" src="/ui/tool-icefox.png" alt="">
-          </span>
+          <span class="tool-icon" aria-hidden="true">▦</span>
           <strong>冰翼取用精灵</strong>
           <small>桌宠与立绘总览二合一：按住立绘直接拖进剪映 / PR</small>
         </button>
@@ -269,6 +286,8 @@
     </main>
     <main id="audio-page" class="production-page" hidden><div id="audio-library-root"></div></main>
     <main id="localtts-page" class="production-page" hidden></main>
+    <main id="existing-draft-page" class="production-page" hidden></main>
+    <main id="gal-story-page" class="production-page" hidden></main>
     <main id="roughcut-page" class="production-page" hidden>
       <div class="production-heading"><div><span class="eyebrow">ROUGH CUT</span><h2>剪映自动粗剪</h2><p>选背景、放人物、定时长，让剪辑从精剪开始。</p></div><button id="cut-back" type="button">返回工具箱</button></div>
       <div class="production-filters"><label>项目名称 <input id="cut-name" value="新粗剪项目" maxlength="100"></label><label>画布 <select id="cut-canvas"><option value="1920x1080">16:9 · 1920 × 1080</option><option value="1080x1920">9:16 · 1080 × 1920</option><option value="1080x1440">3:4 · 1080 × 1440</option><option value="1440x1080">4:3 · 1440 × 1080</option><option value="1080x1080">1:1 · 1080 × 1080</option><option value="1280x720" data-custom>自定义 1280 × 720</option></select></label><label>宽<input id="cut-width" aria-label="画布宽度" type="number" min="320" max="3840" step="1" value="1920"></label><label>高<input id="cut-height" aria-label="画布高度" type="number" min="320" max="3840" step="1" value="1080"></label><label>帧率 <select id="cut-fps"><option>30</option><option>24</option><option>25</option><option>60</option></select></label><select id="cut-projects" aria-label="已保存粗剪项目"><option value="">打开已保存项目…</option></select><button id="cut-new" type="button">新项目</button></div>
@@ -277,7 +296,7 @@
         <section class="production-panel cut-scenes"><div class="production-actions"><button id="cut-add" type="button">添加镜头</button><button id="cut-duplicate" type="button">复制上一镜头</button></div><div class="production-filters"><label>统一时长（秒）<input id="cut-batch-duration" type="number" min="0.1" max="3600" value="4" step="0.1"></label><button id="cut-apply-duration" type="button">应用到全部镜头</button></div><div id="cut-scenes"></div><p id="cut-total">0 个镜头 · 0 秒</p></section>
         <aside class="production-panel cut-inspector"><div id="cut-preview" class="cut-preview"><span>选择背景开始粗剪</span></div><p id="cut-preview-note">预览当前镜头构图，草稿中背景与人物分轨可编辑。</p><div id="cut-editor"></div></aside>
       </div>
-      <div class="cut-export production-panel"><label for="cut-directory">剪映草稿目录</label><div class="production-actions"><input id="cut-directory" placeholder="留空则保存到工坊工作数据" spellcheck="false"><button id="cut-choose-directory" type="button">选择目录</button></div><small>每次生成独立草稿，已精剪的工程不会被覆盖。生成后如未出现在剪映首页，可刷新列表或重启剪映。</small><div class="production-actions"><button id="cut-save" type="button">保存粗剪项目</button><button id="cut-export" class="primary-button" type="button">生成剪映草稿</button><button id="cut-open-output" type="button" hidden>打开草稿文件夹</button></div><p id="cut-status" class="action-note" role="status" aria-live="polite"></p></div>
+      <div class="cut-export production-panel"><label for="cut-directory">剪映草稿目录</label><div class="production-actions"><input id="cut-directory" placeholder="留空则保存到工坊工作数据" spellcheck="false"><button id="cut-choose-directory" type="button">选择目录</button></div><label for="cut-material-directory">素材保存目录</label><div class="production-actions"><input id="cut-material-directory" placeholder="留空随草稿保存；可选本期作品的素材文件夹" spellcheck="false"><button id="cut-choose-material-directory" type="button">选择素材目录</button></div><small>每次生成独立草稿，已精剪的工程不会被覆盖。生成后如未出现在剪映首页，可刷新列表或重启剪映。</small><div class="production-actions"><button id="cut-save" type="button">保存粗剪项目</button><button id="cut-export" class="primary-button" type="button">生成剪映草稿</button><button id="cut-open-output" type="button" hidden>打开草稿文件夹</button></div><p id="cut-status" class="action-note" role="status" aria-live="polite"></p></div>
     </main>
     <main id="settings-page" class="settings-page" hidden>
       <div class="settings-heading">
@@ -290,7 +309,7 @@
         <div class="settings-actions"><span id="settings-status" role="status" aria-live="polite">正在读取设置…</span></div>
       </div>
 
-      <!--设置按分组与详情页组织。-->
+
       <div id="settings-list" class="settings-list">
         <section class="settings-group" aria-labelledby="group-output">
           <h3 id="group-output" class="settings-group-title">输出与导出</h3>
@@ -356,7 +375,7 @@
         </section>
       </div>
 
-      <!--设置详情页保留控件 ID。-->
+
       <div id="panel-single" class="settings-panel" hidden>
         <section class="settings-card panel-surface" aria-labelledby="single-settings-title">
           <div class="settings-card-head"><span class="settings-symbol" aria-hidden="true">↓</span><div><span class="eyebrow">SINGLE</span><h3 id="single-settings-title">单张立绘</h3></div></div>
@@ -566,7 +585,7 @@
     <progress id="batch-progress-bar" max="100" value="0" hidden></progress>
     <p id="batch-result" class="batch-result" role="status" aria-live="polite"></p>
     <div id="batch-errors" class="batch-errors" hidden></div>
-    <!--批量保存到立绘库（含自动标签）。-->
+
     <div class="batch-run batch-library-run">
       <button id="batch-library-save" class="secondary-button" type="button" disabled>批量保存到立绘库</button>
       <label class="batch-label-field">批次标签<input id="batch-library-label" type="text" maxlength="30" placeholder="例如：千张压测" autocomplete="off"></label>

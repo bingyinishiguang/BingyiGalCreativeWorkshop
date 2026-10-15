@@ -10,7 +10,9 @@ import app_paths
 
 class AppPathsTest(unittest.TestCase):
     def test_dev_mode_data_dir_is_project_workdir(self):
-        with patch.object(app_paths, "is_frozen", return_value=False):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(app_paths, "project_root", return_value=Path(tmp)), \
+             patch.object(app_paths, "is_frozen", return_value=False):
             data = app_paths.resolve_data_dir()
             self.assertEqual(data.name, "工作数据")
             self.assertEqual(data.parent, app_paths.project_root())
@@ -55,7 +57,7 @@ class AppPathsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             fake_default = Path(tmp) / "appdata-default"
             custom = Path(tmp) / "custom-data"
-            #会被悄悄重建出来并当成合法数据目录 —— 用户看到空库，新数据又写进这个空目录。
+
             custom.mkdir(parents=True)
             with patch.object(app_paths, "is_frozen", return_value=True), \
                  patch.object(app_paths, "default_data_dir", return_value=fake_default):
@@ -147,7 +149,7 @@ class BetaDeadlineTest(unittest.TestCase):
         info = self._stamp("2020-01-01", message="请找作者拿新包")
         self.assertEqual(info["message"], "请找作者拿新包")
         self.assertTrue(info["expired"])
-        #期限配置仅用于提醒，不阻止使用。
+
         for forbidden in ("block", "blocked", "deny", "lock", "disabled"):
             self.assertNotIn(forbidden, info,
                              "内测期限是提醒不是拦截，不该出现阻止使用的字段")

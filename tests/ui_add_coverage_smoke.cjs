@@ -1,0 +1,64 @@
+const assert=require('node:assert/strict'),fs=require('fs'),path=require('path'),e2e=require('./ui_e2e_helper.cjs');
+(async()=>{const browser=await e2e.chromium.launch({executablePath:e2e.requireBrowser(),headless:true}),out=process.argv[3];fs.mkdirSync(out,{recursive:true});
+try{
+  const p=await browser.newPage({viewport:{width:1366,height:768}}),errors=[];p.on('pageerror',err=>errors.push(err.message));p.on('dialog',d=>d.accept());
+  const item={id:'coverage-audio',name:'覆盖验收音频',duration:8,cues:[],kind:'dialogue',character:'',text:'',missing:false};await p.route(/\/api\/audio(?:\?|$)/,r=>r.fulfill({json:{items:[item],total:1}}));
+  await p.goto(process.argv[2]);await p.locator('#boot-overlay').waitFor({state:'hidden'});await p.locator('#nav-tools').click();await p.locator('#open-roughcut').click();await p.locator('#cut-assets button').first().waitFor({state:'visible'});
+  const snapshot=()=>p.evaluate(()=>cutEditor.snapshot()),time=async()=>Number(await p.locator('#dialogue-preview-time').inputValue());
+  const fresh=async()=>{await p.locator('#studio-project-settings').click();await p.locator('#cut-new').click();await p.locator('#studio-project-close').click();};
+  const validCoverage=()=>p.evaluate(()=>!cutValidation.check(cutEditor.snapshot(),cutV2.audioItems()).issues.some(i=>i.code==='coverage'));
+  await fresh();await p.waitForTimeout(350);
+  const ruler=await p.locator('.editor-ruler>div').boundingBox();await p.mouse.move(ruler.x+20,ruler.y+10);await p.mouse.down();await p.mouse.move(ruler.x+240,ruler.y+10);await p.mouse.up();assert.equal(await time(),0);
+  await p.evaluate(()=>document.activeElement.blur());await p.keyboard.press('ArrowRight');assert.equal(await time(),0);
+  await p.locator('#dialogue-preview-time').fill('999');await p.locator('#dialogue-preview-time').press('Tab');assert.equal(await time(),0);assert.equal(await p.locator('#dialogue-preview-time').getAttribute('max'),'0');
+  await p.locator('#dialogue-play').click();assert.equal(await p.evaluate(()=>cutV2.isPlaying()),false);
+  await p.locator('#cut-audio-tab').click();await p.locator('[data-add-audio]').first().waitFor({state:'visible'});await p.locator('[data-add-audio]').first().click();
+  let project=await snapshot();assert.equal(project.audioClips.length,1);assert.equal(project.scenes.length,1);assert(project.scenes[0].blank);assert.equal(project.scenes[0].duration,8);assert(await validCoverage());
+  await p.locator('#editor-undo').click();project=await snapshot();assert.equal(project.audioClips.length,0);assert.equal(project.scenes.length,0);assert.equal(await time(),0);
+  await p.locator('#editor-redo').click();assert.equal((await snapshot()).audioClips.length,1);
+  const imageId=await p.evaluate(async()=>(await cutEditor.api('/api/backgrounds')).items.find(i=>i.kind==='image').id);
+  await p.locator('#cut-bg-tab').click();await p.locator(`[data-asset-id="${imageId}"] [data-add-asset]`).waitFor({state:'visible'});await p.locator(`[data-asset-id="${imageId}"] [data-add-asset]`).click();
+  project=await snapshot();assert.equal(project.scenes.reduce((n,s)=>n+s.duration,0),8);assert.equal(Boolean(project.scenes[0].blank),false);assert.equal(project.scenes[0].duration,4);assert(project.scenes[1].blank);assert.equal(project.audioClips[0].start,0);
+  await p.locator('#editor-undo').click();assert((await snapshot()).scenes[0].blank);assert.equal((await snapshot()).audioClips.length,1);
+  await p.locator('#cut-audio-tab').click();await p.locator('[data-add-audio]').first().click();project=await snapshot();assert.equal(project.audioClips.length,2);assert(Math.abs(project.scenes.reduce((n,s)=>n+s.duration,0)-16.3)<.001);assert(await validCoverage());
+  await p.locator('#editor-undo').click();assert.equal((await snapshot()).audioClips.length,1);assert.equal((await snapshot()).scenes[0].duration,8);
+  await fresh();await p.locator('#studio-text').click();await p.locator('#studio-add-default-text').click();project=await snapshot();assert.equal(project.textClips.length,1);assert(project.scenes[0].blank);assert.equal(project.scenes[0].duration,3);assert(await validCoverage());
+  await p.locator('#editor-undo').click();project=await snapshot();assert.equal(project.textClips.length,0);assert.equal(project.scenes.length,0);await p.locator('#editor-redo').click();
+  await p.locator('#dialogue-preview-time').fill('999');await p.locator('#dialogue-preview-time').press('Tab');assert.equal(await time(),3);await p.evaluate(()=>document.activeElement.blur());await p.keyboard.press('ArrowRight');assert.equal(await time(),3);
+  await p.evaluate(()=>cutText.update(0,{start:10}));assert.equal(await validCoverage(),false);await p.evaluate(()=>cutV2.locate(999));assert.equal(await time(),13);assert.equal((await snapshot()).scenes[0].duration,3);
+  await fresh();assert.equal(await time(),0);assert.equal(await p.locator('#dialogue-preview-time').getAttribute('max'),'0');await p.screenshot({path:path.join(out,'empty-playhead-zero.png')});
+  await fresh();await p.locator('#studio-text').click();await p.locator('#studio-add-default-text').click();
+  const textOriginal=await snapshot();await p.evaluate(()=>document.activeElement.blur());await p.keyboard.press('Control+c');
+  await p.evaluate(()=>cutV2.locate(3));await p.keyboard.press('Control+v');
+  project=await snapshot();assert.equal(project.textClips.length,2);assert.equal(project.textClips[1].start,3);assert.equal(project.scenes.reduce((sum,scene)=>sum+scene.duration,0),6);assert(await validCoverage());
+  await p.locator('#editor-undo').click();assert.deepEqual((await snapshot()).textClips,textOriginal.textClips);assert.deepEqual((await snapshot()).scenes,textOriginal.scenes);
+  await p.locator('#editor-redo').click();assert.equal((await snapshot()).textClips.length,2);assert(await validCoverage());
+  await fresh();await p.locator('#cut-audio-tab').click();await p.locator('[data-add-audio]').first().click();
+  assert.equal(await p.locator('[data-audio-index="0"].selected').count(),1);
+  await p.evaluate(()=>document.activeElement.blur());await p.keyboard.press('Control+c');await p.evaluate(()=>cutV2.locate(8));await p.keyboard.press('Control+v');
+  project=await snapshot();assert.equal(project.audioClips.length,2);assert.equal(project.audioClips[1].start,8);assert.equal(project.scenes.reduce((sum,scene)=>sum+scene.duration,0),16);assert(await validCoverage());
+  await p.locator('#editor-undo').click();assert.equal((await snapshot()).audioClips.length,1);assert.equal((await snapshot()).scenes[0].duration,8);
+  if(process.argv[4]){
+    await p.unrouteAll();
+    const real=await p.evaluate(async videoPath=>{const imported=await cutEditor.api('/api/backgrounds/import',{paths:[videoPath]});await cutEditor.refreshAssets();await cutV2.loadAudio();return {video:imported.results[0].item,image:(await cutEditor.api('/api/backgrounds')).items.find(i=>i.kind==='image'),audio:cutV2.audioItems().find(i=>!i.missing)};},path.resolve(process.argv[4]));
+    assert(real.audio&&real.video);assert(real.audio.duration>real.video.duration);
+    await p.evaluate(({image,audio})=>{cutEditor.applyTimeline({name:'静态覆盖验收',scenes:[{background:image.id,duration:1,actors:[]}],audioClips:[],textClips:[]});cutV2.addClip(audio);},real);
+    assert.equal((await snapshot()).scenes.length,1);assert((await snapshot()).scenes[0].duration>=real.audio.duration);assert(await validCoverage());
+    await p.locator('#editor-undo').click();assert.equal((await snapshot()).audioClips.length,0);assert.equal((await snapshot()).scenes[0].duration,1);
+    await p.evaluate(({video,audio})=>{cutEditor.applyTimeline({name:'短视频自动覆盖验收',scenes:[{background:video.id,duration:video.duration,videoStart:0,loop:false,actors:[]}],audioClips:[],textClips:[]});cutV2.addClip(audio);},real);
+    project=await snapshot();assert.equal(project.scenes.length,2);assert.equal(project.scenes[0].duration,real.video.duration);assert.equal(project.scenes[0].loop,false);assert(project.scenes[1].blank);assert(await validCoverage());
+    await p.locator('#editor-undo').click();assert.equal((await snapshot()).scenes.length,1);assert.equal((await snapshot()).audioClips.length,0);await p.locator('#editor-redo').click();
+    const reopened=await p.evaluate(async()=>{const saved=await cutEditor.api('/api/roughcut/save',structuredClone(cutEditor.snapshot()));const opened=await cutEditor.api('/api/roughcut/project?id='+saved.id);cutEditor.restore(opened);return opened;});assert(reopened.scenes[1].blank);assert.equal(reopened.audioClips.length,1);
+    if(process.argv[5]){
+      const target=path.resolve(process.argv[5]);fs.mkdirSync(target,{recursive:true});await p.evaluate(target=>cutEditor.api('/api/roughcut/options',{draftDirectory:target}),target);
+      const exportDraft=async label=>{const result=await p.evaluate(label=>cutEditor.api('/api/roughcut/export',{...structuredClone(cutEditor.snapshot()),id:undefined,name:'自动覆盖验收-'+label+'-'+Date.now()}),label);assert(result.path);assert(fs.existsSync(path.join(result.path,'draft_content.json')));console.log(label,result.path);return result;};
+      await exportDraft('视频尾空隙');
+      await p.evaluate(audio=>{cutEditor.applyTimeline({scenes:[],audioClips:[],textClips:[]});cutV2.addClip(audio);},real.audio);assert((await snapshot()).scenes[0].blank);assert.equal((await exportDraft('纯音频空镜头')).duration,real.audio.duration);
+      await p.evaluate(({image,audio})=>{cutEditor.applyTimeline({scenes:[{background:image.id,duration:1,actors:[]}],audioClips:[],textClips:[]});cutV2.addClip(audio);},real);assert.equal((await exportDraft('静态延长')).duration,real.audio.duration);
+      await p.evaluate(audio=>{cutEditor.applyTimeline({scenes:[],audioClips:[],textClips:[]});cutV2.addClip(audio);},real.audio);await p.locator('#cut-bg-tab').click();await p.locator(`[data-asset-id="${real.video.id}"] [data-add-asset]`).click();project=await snapshot();assert.equal(project.scenes[0].duration,real.video.duration);assert(project.scenes[1].blank);assert.equal((await exportDraft('空隙加号短视频')).duration,real.audio.duration);
+      console.log('Real audio-only blank, static extension, video-tail blank and plus-filled short video saved/exported as editable drafts');
+    }
+  }
+  assert.deepEqual(errors,[]);
+  console.log('Automatic coverage and actual playhead bounds: audio/text plus, atomic undo, background fills blank, honest manual coverage warning, empty ruler/input/keyboard/play and new reset passed');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

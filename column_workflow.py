@@ -55,7 +55,7 @@ def normalize_destinations(raw):
     if not isinstance(raw, dict):
         raise ValueError('栏目输出目录格式不正确')
     result = {}
-    for key, label in [('episodeDirectory', '作品目录'), ('draftDirectory', '剪映草稿目录')]:
+    for key, label in [('episodeDirectory', '作品目录'), ('draftDirectory', '剪映草稿目录'), ('materialDirectory', '素材目录')]:
         value = str(raw.get(key) or '').strip()
         if value and not Path(value).is_dir():
             raise ValueError(label + '不存在，请选择已有文件夹')

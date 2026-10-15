@@ -45,7 +45,7 @@ button:disabled { cursor: not-allowed; opacity: .52; }
 .icon-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .icon-button circle { fill: currentColor; }
 
-/*窗口先出现，扫描在后台跑；这一层盖住整个界面，直到 /api/boot 报 ready。*/
+
 .boot-overlay {
   position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
   background: radial-gradient(circle at 50% 22%, #12335a 0, #07111f 62%);
@@ -61,7 +61,7 @@ button:disabled { cursor: not-allowed; opacity: .52; }
 .boot-portrait { width: 156px; height: 234px; flex: none; }
 .boot-portrait img { width: 100%; height: 100%; object-fit: contain; }
 .boot-copy { min-width: 250px; display: flex; flex-direction: column; gap: 10px; }
-/*是这里的 text-transform: uppercase 把 a/l 变成了大写。品牌名大小写要固定，去掉它。*/
+
 .boot-brand { color: #8ad9ff; font-size: 12px; letter-spacing: .16em; }
 .boot-line { margin: 0; color: #eaf6ff; font-size: 15px; line-height: 1.5; }
 .boot-bar { height: 6px; border-radius: 999px; background: #ffffff1f; overflow: hidden; }
@@ -69,13 +69,13 @@ button:disabled { cursor: not-allowed; opacity: .52; }
 .boot-detail { color: #9dc0dc; font-size: 11px; }
 @media (prefers-reduced-motion: reduce) { .boot-bar-fill, .boot-overlay { transition: none; } }
 
-/*批量保存到立绘库（与"导出到磁盘"并列，视觉上分第二档）*/
+
 .batch-library-run { flex-wrap: wrap; gap: 10px; align-items: center; padding-top: 4px; border-top: 1px dashed #cfe0ef; margin-top: 10px; }
 .batch-label-field { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #6f8aa6; }
 .batch-label-field input { width: 150px; padding: 6px 9px; border: 1px solid #c9e0f1; border-radius: 9px; font-size: 11px; background: #fff; color: #26415e; }
 .batch-library-run #batch-library-status { font-size: 11px; color: #6f8aa6; }
 
-/*桌面壳专用的无边框标题栏；普通浏览器里不显示窗口按钮。*/
+
 .window-controls, .window-resize-handle { display: none; }
 html.desktop-shell, html.desktop-shell body { height: 100%; overflow: hidden; }
 html.desktop-shell .app-shell { height: 100vh; min-height: 0; border: 1px solid color-mix(in srgb, var(--accent-border) 54%, transparent); }
@@ -139,7 +139,7 @@ h2 { margin: 5px 0 0; font-size: 19px; line-height: 1.35; font-weight: 700; colo
 .special-banner { display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin: -7px 0 18px; border-radius: 9px; background: #fff4ed; color: #9f5d31; font-size: 12px; font-weight: 700; }
 .banner-dot { width: 7px; height: 7px; border-radius: 50%; background: #e4935a; }
 
-/*内测期限提示条：只在临近/过期时出现，可关闭，不拦功能。*/
+
 .beta-notice {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 16px; margin: 0;
@@ -374,7 +374,7 @@ h2 { margin: 5px 0 0; font-size: 19px; line-height: 1.35; font-weight: 700; colo
 @media (max-width: 720px) { .batch-picker-layout { grid-template-columns: 1fr; } .batch-inspector { grid-row: 1; } .batch-inspector-visual { width: min(100%, 280px); margin: 0 auto; } .batch-face-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 340px; } }
 @media (max-width: 580px) { .face-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-/*冰翼Gal创作工坊 主题变量*/
+
 :root {
   color-scheme: light;
   --bg: #f8fbff; --bg-soft: #f0f6fc; --panel: #fff; --panel-border: #dce7f1;
@@ -389,7 +389,7 @@ h2 { margin: 5px 0 0; font-size: 19px; line-height: 1.35; font-weight: 700; colo
   --accent: #63c6ff; --accent-hover: #8bd7ff; --accent-soft: #173c5b; --accent-border: #347db0;
   --success: #3fb950; --warning: #d29922; --danger: #f85149; --danger-soft: #3d1f1f;
 }
-/*关键容器套用变量（覆盖上面硬编码值）*/
+
 body { background: var(--bg) !important; color: var(--text) !important; }
 [data-theme="dark"] .app-shell { background: var(--bg) !important; }
 [data-theme="dark"] .app-shell {
@@ -425,9 +425,9 @@ html.desktop-shell[data-theme="dark"] .app-header {
 .settings-symbol { background: var(--accent-soft) !important; color: var(--accent) !important; }
 .settings-link { color: var(--accent) !important; }
 
-/*冰翼氛围：克制的冰晶、冷光与面板高光*/
+
 .app-shell { position: relative; isolation: isolate; overflow: hidden; }
-/*顶层 UI 都要抬到氛围层之上。`#beta-notice` 也必须在这里*/
+
 .app-shell > header, .app-shell > main, .app-shell > dialog { position: relative; z-index: 2; }
 #beta-notice { position: relative; z-index: 2; flex: none; }
 .icewing-atmosphere {
@@ -488,7 +488,7 @@ html.desktop-shell[data-theme="dark"] .app-header {
 [data-theme="dark"] .batch-queue { border-color: #26445f; }
 [data-theme="dark"] .batch-queue-row { color: #aec9e0; border-bottom-color: #1e3450; }
 [data-theme="dark"] .batch-face-check { color: #b9d2e8; }
-/*勾选中的卡片本身是浅底，必须一起改，否则新文字色会压在浅底上看不清*/
+
 [data-theme="dark"] .batch-face-card:has(input:checked) { border-color: #4d9dcc !important; background: #173a55 !important; }
 [data-theme="dark"] .batch-result { color: #a9c6e0; }
 [data-theme="dark"] .batch-errors { color: #ffb4ae; background: #3a1d1d; }
@@ -523,7 +523,7 @@ html.desktop-shell[data-theme="dark"] .app-header {
 [data-theme="dark"] .settings-choice strong { color: #d6ebff; }
 [data-theme="dark"] .settings-choice small { color: #a6bed6; }
 [data-theme="dark"] .library-check { color: #a9c7e2; }
-/*上／下一个表情与缩放条：深色下按钮底仍是近白，属浅色孤岛；文字也低于 AA*/
+
 [data-theme="dark"] .face-step { color: #9bdcff; border-color: #315a79; background: #10263a; }
 [data-theme="dark"] .face-step:not(:disabled):hover { border-color: #4d9dcc; background: #173a55; }
 [data-theme="dark"] .face-browse { color: #86cdf5; }
@@ -532,7 +532,7 @@ html.desktop-shell[data-theme="dark"] .app-header {
 [data-theme="dark"] .zoom-tools button:hover,
 [data-theme="dark"] .zoom-tools button.active { color: #dff6ff; background: #173a55; }
 [data-theme="dark"] #batch-count { background: #1d6fb0; }
-/*透明棋盘格本身是浅底（两套主题一致），格内占位文字要用深色才看得清*/
+
 [data-theme="dark"] .batch-inspector-visual.light span,
 [data-theme="dark"] .face-tile-image span,
 [data-theme="dark"] .batch-face-image span { color: #2b4459; }
@@ -541,13 +541,13 @@ html.desktop-shell[data-theme="dark"] .app-header {
 
 .preview-footer { background: var(--panel) !important; border-top-color: var(--panel-border) !important; }
 .canvas-viewport { background-color: var(--bg-soft) !important; }
-/*品牌身份区：头像 + 正下方清晰署名（替代环绕弧形签名，解决小字发虚）*/
+
 .brand-identity { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
 .brand-avatar { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--accent-border); object-fit: cover; background: var(--panel); }
 .brand-signature-text { font-size: 11px; font-weight: 700; letter-spacing: .12em; color: var(--accent); white-space: nowrap; line-height: 1; }
-/*素材包链接列表*/
+
 #pack-links-list { max-height: 160px; overflow: auto; margin-top: 8px; }
-/*素材包导入进度条*/
+
 .pack-import-progress { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .pack-import-bar { flex: 1; height: 6px; border-radius: 999px; background: var(--bg-soft); overflow: hidden; position: relative; }
 .pack-import-bar-active::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: 999px; background: var(--accent); animation: pack-import-slide 1.1s ease-in-out infinite; }
@@ -557,7 +557,7 @@ html.desktop-shell[data-theme="dark"] .app-header {
 .pack-link-item .pack-link-path { color: var(--muted); font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pack-link-item button { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 11px; flex: none; }
 
-/*立绘库：手动导入本地图片（结果清单）*/
+
 .library-import-button { width: 100%; margin-bottom: 8px; }
 .import-results { max-height: 260px; overflow-y: auto; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--panel-border); border-radius: 11px; background: var(--bg-soft); }
 .import-row { margin: 0 0 10px; font-size: 12px; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
@@ -569,7 +569,7 @@ html.desktop-shell[data-theme="dark"] .app-header {
 .import-warning .import-kind { background: #4d3f1d; color: #f0d48a; }
 .import-rejected .import-kind { background: #4d2226; color: #f0a0a6; }
 
-/*运行体检结果*/
+
 .diagnostics-list { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--panel-border); border-radius: 11px; background: var(--bg-soft); }
 .diagnostics-row { margin: 0 0 9px; font-size: 12px; line-height: 1.7; color: var(--text); overflow-wrap: anywhere; }
 .diagnostics-row:last-child { margin-bottom: 0; }
@@ -579,7 +579,7 @@ html.desktop-shell[data-theme="dark"] .app-header {
 .diagnostics-row.is-bad strong { color: #f0a0a6; }
 .diagnostics-row.is-ok strong { color: #9fe0bd; }
 
-/*导入闸门：必填标记与"火力全开"的拒绝提示*/
+
 .required-mark { margin-left: 6px; padding: 1px 6px; border-radius: 7px; background: #ffe9ec; color: #c2384c; font-size: 10px; font-weight: 700; }
 .import-refusal { display: block; margin-top: 10px; padding: 11px 13px; border: 1px solid #f0b7bf; border-left: 4px solid #d2455a; border-radius: 9px; background: #fff5f6; color: #a8283c; font-size: 12px; font-weight: 700; line-height: 1.65; }
 
@@ -588,7 +588,7 @@ html.desktop-shell[data-theme="dark"] .app-header {
 .batch-face-card.picked .batch-face-image { outline: 2px solid #5d9fe0; outline-offset: -2px; }
 .batch-face-image { cursor: pointer; }
 
-/*统一筛选栏几何，窗口宽度不足时换行。*/
+
 html.desktop-shell body { overflow: hidden; }
 .workspace { height: calc(100vh - 76px); max-height: calc(100vh - 76px); overflow: hidden; }
 .selection-panel, .preview-panel, .action-panel { height: 100%; max-height: 100%; min-height: 0; }
@@ -598,7 +598,7 @@ html.desktop-shell body { overflow: hidden; }
 .selection-panel { overflow-y: auto; }
 .canvas-viewport { flex: 1; min-height: 160px; overflow: auto; }
 
-/*工具箱页 + 右栏对称按钮*/
+
 .tools-page { flex: 1; min-height: 0; width: min(1180px, 100%); margin: 0 auto; padding: 26px; overflow-y: auto; }
 .tools-heading { margin-bottom: 20px; }
 .tools-heading h2 { margin: 6px 0 0; font-size: 24px; }

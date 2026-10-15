@@ -13,8 +13,8 @@ from library_tags import MAX_AUTO_TAGS, build_auto_tags
 from sprite_library import SpriteLibrary
 
 STRESS_COUNT = int(os.environ.get("BINGYI_STRESS_COUNT", "200"))
-#只衡量入库耗时，不把合成时间计入图库性能指标。
-#否则"千张压测"的瓶颈就会从合成变成写库。
+
+
 MIN_SAVES_PER_SECOND = 8.0
 
 
@@ -43,7 +43,7 @@ class AutoTagTest(unittest.TestCase):
                                 "category": "swimwear"},
                                batch_label="角色:七绪", source="批量入库")
         self.assertIn("分区:特殊", tags)
-        #重复标签只保留一份
+
         self.assertEqual(tags.count("角色:七绪"), 1)
 
     def test_does_not_invent_emotion_tags(self):
@@ -138,6 +138,6 @@ def test_concurrent_save_merges_all_tags(tmp_path):
     assert result["total"] == 1, "同一张图并发保存只应留下 1 条记录"
     tags = result["items"][0].get("tags") or []
     assert len(tags) == 12, f"12 个并发标签必须全部保留，实际只有 {len(tags)}: {tags}"
-    #不能留下孤儿 PNG（兜底分支删过自己写的那份）
+
     pngs = list((tmp_path / "Library" / "images").rglob("*.png"))
     assert len(pngs) == 1, f"磁盘上应只有 1 个 PNG，实际 {len(pngs)}"

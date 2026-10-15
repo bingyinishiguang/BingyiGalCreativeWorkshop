@@ -1,11 +1,21 @@
 /*Expression calibration and aspect-specific composition presets.*/
 (()=>{
   const $=id=>document.getElementById(id),editor=window.cutEditor,e=editor.escape;
-  let groups=[],presets=[],selected=new Set(),draft=null,current=0,presetVisible=false;
+  let groups=[],presets=[],selected=new Set(),draft=null,current=0,presetVisible=false,selecting=false,groupBusy=false,selectionRevision=0;
   const assets=$('cut-assets').parentElement,bar=assets.querySelector('.production-actions');
   const groupButton=document.createElement('button');groupButton.id='cut-create-group';groupButton.textContent='建立表情组';
   const presetButton=document.createElement('button');presetButton.id='cut-preset-tab';presetButton.textContent='我的预设';
   bar.append(groupButton,presetButton);
+  const selectionBar=document.createElement('div');selectionBar.id='expression-selection-bar';selectionBar.hidden=true;
+  selectionBar.innerHTML='<span id="expression-selection-count" role="status" aria-live="polite"></span><button id="expression-selection-cancel" type="button">取消选择</button>';
+  function updateSelection(){
+    if(groupButton.parentElement&&selectionBar.parentElement!==groupButton.parentElement)groupButton.after(selectionBar);
+    selectionBar.hidden=!selecting;groupButton.textContent=selecting?'继续建立':'建立表情组';groupButton.disabled=groupBusy||(selecting&&selected.size<2);
+    $('expression-selection-count').textContent=`已选 ${selected.size} 张（至少 2 张）`;
+    $('cut-assets').querySelectorAll('.expression-pick').forEach(label=>{label.hidden=!selecting;const input=label.querySelector('input');input.checked=selected.has(label.dataset.spriteId);});
+  }
+  function exitSelection(){selecting=false;selectionRevision++;selected.clear();updateSelection();}
+  selectionBar.querySelector('button').onclick=exitSelection;
   const presetPanel=document.createElement('div');presetPanel.id='cut-presets';presetPanel.hidden=true;assets.append(presetPanel);
   const dialog=document.createElement('dialog');dialog.id='expression-dialog';dialog.className='text-bulk-dialog';
   dialog.innerHTML='<h3>表情组与对齐</h3><p>同姿势共用一张画布。原始坐标可直接复用；只有 PNG 时请逐张核对。图片偏移以组画布左上角为原点，Y 向下。</p><label>组名<input id="group-name"></label><div class="production-filters"><label>画布宽<input id="group-width" type="number" min="1" max="20000"></label><label>画布高<input id="group-height" type="number" min="1" max="20000"></label><label>当前表情<select id="group-member"></select></label></div><div id="group-stage" class="group-stage"></div><label><input id="group-reference" type="checkbox" checked>叠加第一张作为对齐参考</label><p id="group-source"></p><div class="production-filters"><label>偏移 X<input id="group-left" type="number" step="1" min="-20000" max="20000"></label><label>偏移 Y<input id="group-top" type="number" step="1" min="-20000" max="20000"></label><label>校准缩放 %<input id="group-scale" type="number" min="5" max="2000" step="0.1"></label><button id="group-next" type="button">下一表情</button></div><p id="group-error" role="status"></p><div class="production-actions"><button id="group-save">保存表情组</button><button id="group-cancel">取消</button></div>';
@@ -17,8 +27,9 @@
     const isSprite=$('cut-sprite-tab').classList.contains('active');groupButton.hidden=!isSprite;
     if(!isSprite)return;
     [...grid.children].forEach((card,index)=>{const item=items[index];if(!item||card.querySelector('.expression-pick'))return;
-      const label=document.createElement('label');label.className='expression-pick';const input=document.createElement('input');input.type='checkbox';input.checked=selected.has(item.id);input.setAttribute('aria-label','选入表情组 '+(item.displayName||item.face));input.onchange=()=>{if(input.checked)selected.add(item.id);else selected.delete(item.id);};label.append(input,document.createTextNode('选入表情组'));card.append(label);
+      const label=document.createElement('label');label.className='expression-pick';label.dataset.spriteId=item.id;label.hidden=!selecting;const input=document.createElement('input');input.type='checkbox';input.checked=selected.has(item.id);input.disabled=Boolean(item.missing);input.setAttribute('aria-label','选入表情组 '+(item.displayName||item.face));input.onchange=()=>{if(input.checked)selected.add(item.id);else selected.delete(item.id);updateSelection();};label.append(input,document.createTextNode('选入表情组'));card.append(label);
     });
+    updateSelection();
   }
   function showDraft(value){draft=structuredClone(value);current=0;$('group-name').value=draft.name;$('group-width').value=draft.width;$('group-height').value=draft.height;$('group-member').innerHTML=draft.members.map((m,i)=>`<option value="${i}">${e(m.name||m.id)}</option>`).join('');$('group-error').textContent='';dialog.showModal();renderMember();}
   function renderMember(){const m=draft.members[current];$('group-member').value=current;$('group-left').value=m.left;$('group-top').value=m.top;$('group-scale').value=m.scale*100;$('group-source').textContent=m.mode||'人工校准';renderStage();}
@@ -26,14 +37,14 @@
     const add=(m,reference)=>{const image=new Image();image.src='/api/library/image?id='+encodeURIComponent(m.id);image.className='group-image';image.style.opacity=reference?.35:1;image.onload=()=>{image.style.width=image.naturalWidth*m.scale/draft.width*100+'%';image.style.height=image.naturalHeight*m.scale/draft.height*100+'%';};image.style.left=m.left/draft.width*100+'%';image.style.top=m.top/draft.height*100+'%';stage.append(image);};
     if($('group-reference').checked&&current!==0)add(draft.members[0],true);add(draft.members[current],false);
   }
-  groupButton.onclick=()=>action(async()=>showDraft(await editor.api('/api/composition/group-suggest',{ids:[...selected]})));
+  groupButton.onclick=()=>action(async()=>{if(groupBusy)return;if(!selecting){selecting=true;selectionRevision++;updateSelection();return;}if(selected.size<2)return;const revision=selectionRevision;groupBusy=true;updateSelection();try{const value=await editor.api('/api/composition/group-suggest',{ids:[...selected]});if(selecting&&revision===selectionRevision)showDraft(value);}finally{groupBusy=false;updateSelection();}});
   $('group-member').onchange=event=>{current=Number(event.target.value);renderMember();};
   $('group-next').onclick=()=>{current=(current+1)%draft.members.length;renderMember();};
   $('group-reference').onchange=renderStage;
   for(const [id,key] of [['group-left','left'],['group-top','top'],['group-scale','scale']])$(id).oninput=event=>{if(!event.target.value||!event.target.checkValidity())return;draft.members[current][key]=Number(event.target.value)/(key==='scale'?100:1);renderStage();};
   for(const [id,key] of [['group-width','width'],['group-height','height']])$(id).onchange=event=>{if(!event.target.value||!event.target.checkValidity())return;draft[key]=Number(event.target.value);renderStage();};
   $('group-cancel').onclick=()=>dialog.close();
-  $('group-save').onclick=async()=>{try{if(![...dialog.querySelectorAll('input[type=number]')].every(n=>n.value&&n.checkValidity()))throw Error('请检查对齐参数');draft.name=$('group-name').value;await editor.api('/api/composition/group-save',draft);selected.clear();dialog.close();await refresh();editor.render();assets.querySelectorAll('.expression-pick input').forEach(n=>n.checked=false);$('cut-status').textContent='表情组已保存，请在角色属性中绑定';}catch(error){$('group-error').textContent=error.message;}};
+  $('group-save').onclick=async()=>{try{if(![...dialog.querySelectorAll('input[type=number]')].every(n=>n.value&&n.checkValidity()))throw Error('请检查对齐参数');draft.name=$('group-name').value;await editor.api('/api/composition/group-save',draft);exitSelection();dialog.close();await refresh();editor.render();$('cut-status').textContent='表情组已保存，请在角色属性中绑定';}catch(error){$('group-error').textContent=error.message;}};
   function memberPlacement(m){const {width,height,left,top,scale,groupId,version}=m;return {width,height,left,top,scale,groupId,version};}
   function replaceAlignment(actor,id){if(!actor.alignment)return;const group=groups.find(g=>g.id===actor.alignment.groupId&&g.version===actor.alignment.version);const m=group?.members.find(m=>m.id===id);if(m)actor.alignment=memberPlacement(m);else delete actor.alignment;}
   function renderActor(panel,actor){
@@ -56,6 +67,9 @@
   }
   presetButton.onclick=()=>action(async()=>{presetVisible=true;$('cut-assets').hidden=true;$('cut-asset-search').hidden=true;$('cut-assets-more').hidden=true;$('editor-audio-assets').hidden=true;groupButton.hidden=true;presetPanel.hidden=false;for(const id of ['cut-bg-tab','cut-sprite-tab','cut-audio-tab'])$(id).classList.remove('active');presetButton.classList.add('active');await refresh();});
   for(const id of ['cut-bg-tab','cut-sprite-tab','cut-audio-tab'])$(id).addEventListener('click',()=>{presetVisible=false;presetPanel.hidden=true;presetButton.classList.remove('active');groupButton.hidden=id!=='cut-sprite-tab';});
+  for(const id of ['cut-bg-tab','cut-audio-tab','cut-preset-tab'])$(id).addEventListener('click',exitSelection);
+  document.addEventListener('click',event=>{if(event.target.closest('#studio-text'))exitSelection();});
+  window.addEventListener('cut-project-loaded',exitSelection);
   window.addEventListener('cut-rendered',()=>{if(presetVisible)renderPresets();});
   window.addEventListener('workshop-page',event=>{if(event.detail==='roughcut')action(async()=>{await refresh();editor.render();});});
   window.cutComposition={decorateAssets,renderActor,replaceAlignment};

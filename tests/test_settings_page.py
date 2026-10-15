@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = ROOT / "ui" / "index.html"
 
-#这些控件 ID 被脚本绑定，调整布局时仍需保留。
+
 LEGACY_CONTROL_IDS = [
     "single-path", "batch-path", "drag-path", "data-dir-path", "pack-import-path",
     "run-diagnostics", "export-diagnostics", "choose-single-path",
@@ -77,7 +77,7 @@ def test_every_called_helper_exists():
     declared = set(re.findall(r"\bfunction\s+([A-Za-z_$][\w$]*)\s*\(", app_js))
     declared |= set(re.findall(r"\bconst\s+([A-Za-z_$][\w$]*)\s*=", app_js))
     declared |= set(re.findall(r"\blet\s+([A-Za-z_$][\w$]*)\s*=", app_js))
-    #浏览器/环境自带，不参与检查
+
     builtin = {
         "fetch", "setTimeout", "clearTimeout", "setInterval", "clearInterval",
         "parseInt", "parseFloat", "isNaN", "encodeURIComponent", "decodeURIComponent",
@@ -87,7 +87,7 @@ def test_every_called_helper_exists():
         "Error", "TypeError", "RangeError", "Map", "Set", "Date", "Math", "RegExp",
         "setProperty", "getProperty", "addEventListener", "removeEventListener",
     }
-    #检查启动和刷新路径，避免未定义的函数中断界面初始化。
+
     watched = ["async function bootstrapApp()", "function refreshGames()",
                "function changeGame()", "function changeCharacter()",
                "function syncSettingsFields()", "function showPreview("]
@@ -96,7 +96,7 @@ def test_every_called_helper_exists():
         if header not in app_js:
             continue
         body = app_js[app_js.index(header):]
-        #取到下一个顶层 function 之前
+
         next_top = body.find("\nfunction ", len(header))
         if next_top == -1:
             next_top = body.find("\nasync function ", len(header))
@@ -138,7 +138,7 @@ def test_import_requires_game_and_character():
         assert name in app_js, name
     assert "会记不住自己推的是谁吗" in app_js, "校验提示文案缺失"
     assert "你这是在玩我，还是在玩 Galgame" in app_js, "两个都空的文案缺失"
-    #四种情况要分别判定（都空 / 缺角色 / 缺作品 / 齐全）
+
     assert "!gameValue && !characterValue" in app_js, "没区分「两个都空」"
 
     index = (ROOT / "ui" / "index.html").read_text(encoding="utf-8")
@@ -146,7 +146,7 @@ def test_import_requires_game_and_character():
     assert "required-mark" not in index, "必填标记必须撤掉"
     assert "必须填" not in index, "说明文字必须撤掉"
 
-    #按钮可点击，由提交时的校验提示缺失字段。
+
     assert "pick.disabled" not in app_js, "导入按钮应允许提交后校验"
 
     composer = (ROOT / "sprite_composer.py").read_text(encoding="utf-8")

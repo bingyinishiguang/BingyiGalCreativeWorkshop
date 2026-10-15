@@ -1,4 +1,4 @@
-/*冰翼晶宫设计系统*/
+
 
 :root,
 [data-theme="dark"] {
@@ -34,7 +34,7 @@
   --ice-control-h: 44px;
   --ice-ease: cubic-bezier(.2, .75, .25, 1);
 
-  /*兼容旧样式层正在使用的变量名。*/
+
   --bg: var(--ice-bg-0);
   --bg-soft: var(--ice-bg-2);
   --panel: var(--ice-panel);
@@ -493,7 +493,7 @@ code {
   }
 }
 
-/*品牌顶栏与工作台几何*/
+
 
 :root {
   --app-header-h: 82px;
@@ -942,7 +942,7 @@ html:not(.desktop-shell) .header-divider {
   }
 }
 
-/*自绘冰晶下拉菜单*/
+
 
 .ice-select {
   position: relative;

@@ -20,6 +20,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-root', type=Path, required=True)
     parser.add_argument('--audio-samples', nargs='*',default=[])
+    parser.add_argument('--composer-fixture', action='store_true', help='Include synthetic PNG layers for real composer and batch tests')
     args = parser.parse_args()
     root = args.data_root.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -53,7 +54,22 @@ def main():
         sprites.save('自制验收素材','测试人物','standing',face,'normal',image)
     policy = sprite_composer.IsolationPolicy.load(root / 'isolation-decisions.json')
     state = sprite_composer.BootState(root, exports)
-    state.publish({}, {}, {}, policy)
+    characters = {}
+    if args.composer_fixture:
+        from PIL.PngImagePlugin import PngInfo
+        character = fixtures / 'composer' / '测试人物'
+        character.mkdir(parents=True, exist_ok=True)
+        body = Image.new('RGBA', (400, 700))
+        ImageDraw.Draw(body).polygon([(140,180),(260,180),(325,660),(75,660)], fill='#80c8ed')
+        metadata = PngInfo(); metadata.add_text('comment', 'pos,0,0,400,700')
+        body.save(character / 'standing_noa.png', pnginfo=metadata)
+        for number,color in [('0001','#95d7fa'),('0002','#efc4de')]:
+            face = Image.new('RGBA', (140, 160))
+            ImageDraw.Draw(face).ellipse((5,5,135,155), fill=color)
+            metadata = PngInfo(); metadata.add_text('comment', 'pos,130,30,140,160')
+            face.save(character / ('a'+number+'.png'), pnginfo=metadata)
+        characters = sprite_composer.scan_characters(character.parent)
+    state.publish(characters, {}, {}, policy)
     thread = threading.Thread(target=sprite_composer.run_web_app,args=(root,state),
                               kwargs={'open_browser':False,'scan_in_background':False},daemon=True)
     thread.start()

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
-#路径
+
 ROOT = pathlib_root = Path(__file__).resolve().parent.parent
 
 
@@ -60,7 +60,7 @@ def build_avatar() -> None:
     img = img.crop(((img.width - side) // 2, (img.height - side) // 2,
                     (img.width + side) // 2, (img.height + side) // 2))
     img = img.resize((192, 192), Image.LANCZOS)
-    #圆形裁切
+
     mask = Image.new("L", (192, 192), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, 192, 192), fill=255)
     out = Image.new("RGBA", (192, 192), (0, 0, 0, 0))
@@ -93,15 +93,15 @@ def build_signature() -> None:
     glyphset = font.getGlyphSet()
     upm = font["head"].unitsPerEm
 
-    #尺寸：viewBox 200x200，头像半径约 62，文字基线半径 82（贴环，76px 顶栏内不溢出）
+
     size = 200
     cx = cy = size / 2
     text_r = 82
-    scale = 26 / upm  #字高约 26px
+    scale = 26 / upm
 
     n = len(SIGN_TEXT)
-    #沿头像下方弧线从左到右排布（底部弧线，字头朝圆心）
-    step = 26  #每字角距
+
+    step = 26
     start_angle = 90 + (n - 1) * step / 2
 
     paths = []
@@ -118,11 +118,11 @@ def build_signature() -> None:
             continue
         angle = start_angle - i * step
         rad = math.radians(angle)
-        #字形中心放在圆周上，并让字形随角度旋转（字头朝圆心，位于头像下方）
+
         gx = cx + text_r * math.cos(rad)
         gy = cy + text_r * math.sin(rad)
-        rot = angle - 90  #底部朝外
-        #先缩放、绕字形中心旋转、再平移到圆周点
+        rot = angle - 90
+
         t = (f"translate({gx:.2f} {gy:.2f}) rotate({rot:.1f}) "
              f"scale({scale:.4f} {-scale:.4f}) translate({-upm/2:.1f} {-upm/2:.1f})")
         paths.append(f'<path transform="{t}" d="{d}"/>')
@@ -152,15 +152,15 @@ def _chroma_key(img: Image.Image) -> Image.Image:
     for y in range(h):
         for x in range(w):
             r, g, b, a = px[x, y]
-            #绿色强度
+
             if g > 90 and g > r * 1.15 and g > b * 1.15:
-                #完全绿 → 透明
+
                 alpha = 0
-                #去溢色：压低绿
+
                 g = min(g, max(r, b))
                 px[x, y] = (r, g, b, alpha)
             elif g > r and g > b:
-                #边缘过渡 → 部分透明 + 去绿
+
                 alpha = int(255 * (1 - (g - max(r, b)) / 80))
                 alpha = max(0, min(255, alpha))
                 g = min(g, max(r, b) + 8)
@@ -174,27 +174,27 @@ def build_logo_assets() -> None:
         return
     OUT.mkdir(exist_ok=True)
     base = Image.open(LOGO_SRC).convert("RGBA")
-    #产物最大 512px，先缩再逐像素抠图，避免大图循环过慢
+
     base.thumbnail((512, 512), Image.LANCZOS)
     keyed = _chroma_key(base)
-    #裁剪到内容包围盒
+
     bbox = keyed.getbbox()
     if bbox:
         keyed = keyed.crop(bbox)
     keyed.save(OUT / "logo-transparent.png")
 
-    #favicon（多尺寸 PNG，浏览器取合适尺寸）
+
     fav = keyed.copy()
     fav.thumbnail((64, 64), Image.LANCZOS)
     fav.save(UI / "favicon.png")
     print("[ok] ui/favicon.png")
 
-    #.ico（多尺寸）
+
     ico = keyed.copy()
     ico.save(OUT / "app.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
     print("[ok] brand-assets/app.ico")
 
-    #Inno 向导图（164x314 左侧大图 + 55x58 小图）
+
     wiz = Image.new("RGBA", (164, 314), (250, 252, 255, 255))
     logo = keyed.copy()
     logo.thumbnail((150, 220), Image.LANCZOS)

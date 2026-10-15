@@ -34,6 +34,34 @@ def test_connection_does_not_switch_or_generate(studio):
     t,calls=studio;t.test();assert [r for r,p in calls]==['/openapi.json']
 
 
+def test_history_trash_and_restore_preserve_shared_audio(studio):
+    t, _ = studio
+    first = t.generate({'text': '第一句'})
+    second = t.generate({'text': '第二句'})
+    before = t.file(first['id']).read_bytes()
+    t.trash_take(first['id'])
+    assert [item['id'] for item in t.history()['items']] == [second['id']]
+    assert [item['id'] for item in t.history(True)['items']] == [first['id']]
+    assert t.file(first['id']).read_bytes() == before
+    assert t.library.file(first['audioId']).is_file()
+    t.trash_take(first['id'], restore=True)
+    assert len(t.history()['items']) == 2
+    assert t.history(True)['items'] == []
+    with pytest.raises(ValueError):
+        t.trash_take('../outside')
+
+
+def test_audio_work_and_tags_save_search_and_legacy_records(studio):
+    t, _ = studio
+    take = t.generate({'text': '台词'})
+    item = t.library.update({'id': take['audioId'], 'kind': 'bgm', 'work': '测试作品',
+                             'tags': [' 清晨 ', '清晨', '校园']})
+    assert item['tags'] == ['清晨', '校园']
+    assert t.library.list(search='校园')['total'] == 1
+    assert t.library.list(search='测试作品', kind='bgm')['total'] == 1
+    assert item['text'] == '台词'
+
+
 def test_versions_and_duplicate_keep_previous_metadata(studio):
     t,calls=studio
     a=t.generate({'text':'第一句','name':'第一版'})

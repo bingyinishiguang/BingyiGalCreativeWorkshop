@@ -64,13 +64,16 @@ class RoughCut:
 
     def options(self):
         path = self.root / 'options.json'
-        return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {'draftDirectory': ''}
+        return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {'draftDirectory': '', 'materialDirectory': ''}
 
     def save_options(self, payload):
-        directory = str(payload.get('draftDirectory', '')).strip()
-        if directory and not Path(directory).is_dir():
-            raise ValueError('剪映草稿目录不存在，请选择实际的 JianyingPro Drafts 文件夹')
-        atomic_json(self.root / 'options.json', {'draftDirectory': directory})
+        options = self.options()
+        for field, label in [('draftDirectory', '剪映草稿目录'), ('materialDirectory', '素材目录')]:
+            directory = str(payload.get(field, options.get(field, ''))).strip()
+            if directory and not Path(directory).is_dir():
+                raise ValueError(label + '不存在，请选择已有文件夹')
+            options[field] = directory
+        atomic_json(self.root / 'options.json', options)
         return self.options()
 
     def project_path(self, project_id):
@@ -251,6 +254,8 @@ class RoughCut:
                 folder = staging
                 media = folder / 'media'
                 media.mkdir()
+                from draft_media import MediaPack
+                pack = MediaPack(media, final/'media', project.get('workflow', {}).get('materialDirectory') or self.options().get('materialDirectory', ''))
                 tracks = {0:script.append_track(draft.TrackSpec(draft.TrackType.video,'背景',mute=True))}
                 for slot in project['roleOrder']:
                     #New layer-aware projects only need actor tracks that contain actors.
@@ -266,8 +271,7 @@ class RoughCut:
                     if kind in ('background', 'overlay'):
                         from dialogue_timeline import safe_name
                         source = self.backgrounds.file(item_id)
-                        target = media / safe_name(self.backgrounds.get(item_id)['name'],item_id,source.suffix)
-                        shutil.copy2(source, target)
+                        target = pack.copy(source, self.backgrounds.get(item_id)['name'])
                     else:
                         source = self.sprites.file(item_id, False)
                         if not source:
@@ -277,8 +281,7 @@ class RoughCut:
                         if info is None:
                             raise ValueError('立绘已移入回收站')
                         display = info.get('displayName') or '_'.join(str(info.get(k) or '') for k in ('character','body','face')).strip('_') or '人物'
-                        target = media / safe_name(display,item_id,'.png')
-                        if placement:target=target.with_name(target.stem+'-'+uuid.uuid4().hex[:8]+'.png')
+                        target = pack.allocate(display + ('_对齐立绘' if placement else ''), '.png')
                         with Image.open(source) as image:
                             image = image.convert('RGBA')
                             box = image.getchannel('A').getbbox()
@@ -290,7 +293,7 @@ class RoughCut:
                             else:image.crop(box).save(target)
                     value = draft.VideoMaterial(str(target))
                     #Files are staged, but serialized references point to their durable final paths.
-                    value.path = str(final / 'media' / target.name)
+                    value.path = pack.path(target)
                     materials[key] = value
                     return value
                 w, h = project['width'], project['height']
@@ -345,7 +348,7 @@ class RoughCut:
                             value=material('sprite',member['id'],p)
                             if value not in script.materials:script.materials.videos.append(value)
                 from dialogue_timeline import export_dialogue
-                export_dialogue(script,draft,project,self.audio_library,media,final)
+                export_dialogue(script,draft,project,self.audio_library,media,final,pack)
                 meta_path = folder / 'draft_meta_info.json'
                 meta = json.loads(meta_path.read_text(encoding='utf-8'))
                 from draft_asset_registry import register, actor_pack
@@ -371,9 +374,14 @@ class RoughCut:
                 self._cover(project, folder / 'draft_cover.jpg')
                 meta['draft_cover'] = str(final / 'draft_cover.jpg')
                 atomic_json(meta_path, meta)
-                publish_directory(folder,final)
+                pack.publish()
+                try:
+                    publish_directory(folder,final)
+                except Exception:
+                    pack.rollback()
+                    raise
                 return {'project': project, 'name': name, 'path': str(final),
-                        'inJianyingDirectory': bool(directory), 'duration': project['durationUs']/1_000_000}
+                        'materialDirectory':str(pack.final), 'inJianyingDirectory': bool(directory), 'duration': project['durationUs']/1_000_000}
             finally:
                 #Only the freshly-created staging directory is owned by this operation.
                 shutil.rmtree(staging, ignore_errors=True)

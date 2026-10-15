@@ -32,24 +32,24 @@ def _log_library_issue(message: str) -> None:
         except Exception:
             pass
 
-#限制导入格式、大小和像素量；透明度只用于区分立绘与背景图。
+
 IMPORT_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".bmp"})
 AUDIO_EXTENSIONS = frozenset({".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma", ".ape"})
 IMPORT_MIN_SIDE = 32
 IMPORT_MAX_SIDE = 8192
-#解码和 RGBA 转换会同时占用内存，限制像素总量以控制导入峰值。
+
 IMPORT_MAX_PIXELS = 12_000_000
 IMPORT_MIN_BYTES = 1024
 IMPORT_MAX_BYTES = 50 * 1024 * 1024
 
-#校验文件头，避免把改过扩展名的音频或其他文件当作图片。
+
 _MAGIC_PNG = b"\x89PNG\r\n\x1a\n"
 _MAGIC_JPEG = b"\xff\xd8\xff"
 _MAGIC_BMP = b"BM"
 _AUDIO_MAGIC = (b"ID3", b"fLaC", b"OggS", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
 _RIFF = b"RIFF"
 
-#四角透明阈值与边缘透明占比阈值（alpha 0-255）
+
 _CORNER_ALPHA_MAX = 16
 _EDGE_TRANSPARENT_OK = 0.30
 _EDGE_TRANSPARENT_REJECT = 0.05
@@ -72,7 +72,7 @@ def _looks_transparent_sprite(rgba: Image.Image) -> tuple[str, str, dict]:
     ]
     corners_opaque = all(value > _CORNER_ALPHA_MAX for value in corners)
 
-    #沿四边采样，统计透明像素占比
+
     transparent = 0
     total = 0
     for x in range(width):
@@ -87,7 +87,7 @@ def _looks_transparent_sprite(rgba: Image.Image) -> tuple[str, str, dict]:
                 transparent += 1
     edge_ratio = transparent / total if total else 0.0
 
-    #用直方图统计透明占比，避免在 Python 中逐像素遍历。
+
     histogram = alpha.histogram()
     transparent_all = sum(histogram[:_CORNER_ALPHA_MAX + 1])
     overall_ratio = transparent_all / (width * height) if width and height else 0.0
@@ -114,7 +114,7 @@ def validate_import_candidate(path: Path) -> dict:
                     "reason": "", "image": None, "width": 0, "height": 0, "format": ""}
     suffix = path.suffix.lower()
 
-    #校验扩展名。
+
     if suffix in AUDIO_EXTENSIONS:
         result["reason"] = f"这是音频文件（{suffix.lstrip('.').upper()}），不是立绘图片，已拒绝"
         return result
@@ -122,7 +122,7 @@ def validate_import_candidate(path: Path) -> dict:
         result["reason"] = f"不支持的格式「{suffix or '无扩展名'}」，只接受 PNG / JPG / WEBP / BMP，已拒绝"
         return result
 
-    #先检查文件大小，避免读入过大的内容。
+
     try:
         size = path.stat().st_size
     except OSError as error:
@@ -135,7 +135,7 @@ def validate_import_candidate(path: Path) -> dict:
         result["reason"] = f"文件太大（{size / 1048576:.1f} MB），超过 50 MB 上限"
         return result
 
-    #文件头匹配后再解码，拒绝损坏图片。
+
     try:
         head = path.open("rb").read(16)
     except OSError as error:
@@ -154,7 +154,7 @@ def validate_import_candidate(path: Path) -> dict:
             result["format"] = (opened.format or "").upper()
             opened.load()
             width, height = opened.size
-            #BMP/JPG 等无 alpha 通道的格式，天生就是「矩形背景图」
+
             has_alpha = opened.mode in ("RGBA", "LA", "PA") or "transparency" in opened.info
             rgba = opened.convert("RGBA")
     except Image.DecompressionBombError:
@@ -166,7 +166,7 @@ def validate_import_candidate(path: Path) -> dict:
 
     result["width"], result["height"] = width, height
 
-    #限制单边尺寸和像素总量。
+
     if min(width, height) < IMPORT_MIN_SIDE:
         result["reason"] = f"尺寸太小（{width}×{height}），立绘至少要有 {IMPORT_MIN_SIDE}px"
         return result
@@ -177,7 +177,7 @@ def validate_import_candidate(path: Path) -> dict:
         result["reason"] = f"像素总量太大（{width * height / 1e6:.1f} 百万），超过 {IMPORT_MAX_PIXELS / 10_000:g} 万上限"
         return result
 
-    #根据透明度区分立绘、背景图和可确认的警告。
+
     if not has_alpha:
         result["reason"] = f"{result['format'] or suffix.lstrip('.').upper()} 天生没有透明通道，属于矩形背景图，已拒绝"
         return result
@@ -201,7 +201,7 @@ class SpriteLibrary:
         try:
             self._initialize_schema()
         except (sqlite3.DatabaseError, sqlite3.OperationalError) as error:
-            #隔离损坏数据库后重建；保留原始图片和坏库供恢复。
+
             backup = self._quarantine_broken_database(error)
             _log_library_issue(
                 f"立绘库数据库无法使用（{error}），已改名为 {backup.name} 并重建空库。"
@@ -222,7 +222,7 @@ class SpriteLibrary:
             try:
                 os.replace(source, destination)
             except OSError:
-                #改不动（只读盘等）就删掉，否则下面重建还是会失败。
+
                 try:
                     source.unlink()
                 except OSError:
@@ -283,7 +283,7 @@ class SpriteLibrary:
             connection.execute("CREATE INDEX IF NOT EXISTS sprites_game_character ON sprites(game, character)")
             connection.execute("CREATE INDEX IF NOT EXISTS sprites_deleted ON sprites(deleted_at)")
             connection.execute("CREATE INDEX IF NOT EXISTS sprites_hash ON sprites(content_hash)")
-            #唯一索引约束未删除的图片；旧库存在重复时跳过建索引并记录日志。
+
             try:
                 connection.execute(
                     "CREATE UNIQUE INDEX IF NOT EXISTS sprites_unique_live "
@@ -313,7 +313,7 @@ class SpriteLibrary:
                 if path.is_relative_to(self.images.resolve()) and path.is_file():
                     with Image.open(path) as image:
                         digest = self._image_hash(image)
-                    #哈希冲突只跳过当前条目，不能触发整库隔离。
+
                     try:
                         with connection:
                             connection.execute("UPDATE sprites SET content_hash = ? WHERE id = ?",
@@ -326,7 +326,7 @@ class SpriteLibrary:
                     f"（这些记录仍可正常使用，只是不参与内容去重）。"
                 )
 
-    #迁移目录时同步改写数据库相对路径，保留旧目录。
+
     LEGACY_DIR_RENAMES = {"图片": "images", "缩略图": "thumbs", "回收站": "trash"}
     LEGACY_DB_NAMES = ("立绘库.sqlite3",)
 
@@ -384,14 +384,11 @@ class SpriteLibrary:
     @contextmanager
     def _connect(self):
         """创建独立 SQLite 连接，设置锁等待；WAL 不可用时降级记录。"""
-    @contextmanager
-    def _connect(self):
-        """创建独立 SQLite 连接，设置锁等待；WAL 不可用时降级记录。"""
         connection = sqlite3.connect(self.root / app_paths.LIBRARY_DB_NAME, timeout=15)
         try:
             connection.row_factory = sqlite3.Row
             connection.execute("PRAGMA foreign_keys = ON")
-            #WAL 不可用时记录日志，不阻止图库访问。
+
             try:
                 connection.execute("PRAGMA journal_mode=WAL")
             except sqlite3.DatabaseError as error:
@@ -415,7 +412,7 @@ class SpriteLibrary:
             for path in folder.rglob("*"):
                 if not path.is_file():
                     continue
-                #按图片 ID 识别缓存；.head.png 等多重后缀不能只用 Path.stem。
+
                 stem = path.stem
                 if stem.endswith(".head"):
                     stem = stem[: -len(".head")]
@@ -423,7 +420,7 @@ class SpriteLibrary:
                     continue
                 try:
                     if path.stat().st_mtime > cutoff:
-                        continue  #太新：可能是正在写入的那一张
+                        continue
                 except OSError:
                     continue
                 orphans[key].append(path)
@@ -607,7 +604,7 @@ class SpriteLibrary:
                     """, (item_id, game, character, body, face, category, relative_path,
                           rgba.width, rgba.height, saved_at, content_hash, saved_at))
                 except sqlite3.IntegrityError:
-                    #并发请求可能在查重后插入相同图片，由唯一索引保证不重复入库。
+
                     connection.rollback()
                     duplicate_row = connection.execute(
                         "SELECT * FROM sprites WHERE game = ? AND character = ? AND body = ? "
@@ -664,7 +661,7 @@ class SpriteLibrary:
         }
 
         hard_reject = outcome["level"] == LEVEL_REJECT
-        #强制导入只覆盖透明度警告，格式错误、损坏和超限仍然拒绝。
+
         forceable = bool(outcome.get("metrics"))
         if hard_reject and not (force and forceable):
             return {**base, "status": "rejected"}
@@ -678,7 +675,7 @@ class SpriteLibrary:
         digest = self._image_hash(image)
         existing = self.find_by_content_hash(digest)
         if existing is not None:
-            #重复命中时合并标签，保留已有元数据。
+
             normalized = self._normalize_tags(tags)
             if normalized:
                 updated = self.update(existing["id"], False, existing.get("displayName") or "",
@@ -738,7 +735,7 @@ class SpriteLibrary:
             )]
             scope = ("sprites.category <> 'normal'" if special else "sprites.category = 'normal'") \
                 + " AND " + ("sprites.deleted_at <> ''" if trash else "sprites.deleted_at = ''")
-            #作品与角色筛选相互约束。
+
             game_clause = " AND sprites.game = ?" if game else ""
             game_args: list[object] = [game] if game else []
             character_clause = " AND sprites.character = ?" if character else ""
@@ -752,7 +749,7 @@ class SpriteLibrary:
             scoped_games = [row[0] for row in connection.execute(
                 f"SELECT DISTINCT sprites.game FROM sprites WHERE {scope}{character_clause} "
                 "ORDER BY sprites.game COLLATE NOCASE", character_args)]
-            #级联筛选使用完整对应表，避免当前结果限制下一次筛选。
+
             game_characters: dict[str, list[str]] = {}
             for row in connection.execute(
                     f"SELECT DISTINCT sprites.game, sprites.character FROM sprites WHERE {scope} "
@@ -838,7 +835,7 @@ class SpriteLibrary:
                 if destination.exists():
                     raise FileExistsError("回收站中已经存在同名文件")
                 os.replace(source, destination)
-            #回收站列表仍然要显示这些立绘的缩略图，删掉缓存后 `thumbnail_bytes()`
+
             deleted_at = datetime.now().astimezone().isoformat(timespec="seconds")
             connection.execute("UPDATE sprites SET deleted_at = ?, updated_at = ? WHERE id = ?",
                                (deleted_at, deleted_at, item_id))
@@ -936,11 +933,11 @@ class SpriteLibrary:
         width, height = image.size
         if width <= 0 or height <= 0:
             return None
-        #只取顶部一段（头 + 肩）。比例夹在合理区间，防止异常图片算出 0 高。
+
         ratio = min(0.9, max(0.15, float(head_ratio)))
         head_height = max(1, min(height, int(round(height * ratio))))
         head = image.crop((0, 0, width, head_height))
-        #放大到 256 以内：小图不放大（避免糊），大图缩小到刚好。
+
         head.thumbnail((256, 256), Image.Resampling.LANCZOS)
         stream = io.BytesIO()
         try:
@@ -953,7 +950,7 @@ class SpriteLibrary:
         """校验图片访问权限后返回或生成 .head.png 缓存，供 QML 文件加载使用。"""
         if not self._valid_id(item_id):
             return None
-        #先确认这条立绘确实存在且落在要求的分区里，再考虑用缓存。
+
         if self.file(item_id, special, trash) is None:
             return None
         cached = self.thumbs / f"{item_id}.head.png"
@@ -979,7 +976,7 @@ class SpriteLibrary:
         """校验类别与回收站状态后返回缩略图；缺失时生成不超过 256 像素的 WebP。"""
         if not self._valid_id(item_id):
             return None
-        #先按分区/回收站状态确认这条记录确实属于当前模式（原图接口同一口径）。
+
         if self.file(item_id, special, trash) is None:
             return None
         thumb = self.thumbnail_path(item_id)

@@ -20,13 +20,20 @@ class TimelineVoice:
         return {'items':[t for t in self.tts.history()['items'] if t.get('timelineTarget',{}).get('id')==key]}
 
     def generate(self, payload):
+        return self.generate_prepared(self.prepare(payload))
+
+    def prepare(self, payload):
         project=self.cut.normalize(payload.get('project',{}))
         clip=self.target(project,payload.get('target'))
         preset=copy.deepcopy(self.tts.voices.get(payload.get('voiceId'))['preset'])
         preset.update(textLanguage=payload.get('language',preset['textLanguage']),speed=payload.get('speed',preset['speed']),device=payload.get('device',preset.get('device','cpu')),sampleSteps=payload.get('sampleSteps',preset.get('sampleSteps',32)),fragmentInterval=payload.get('fragmentInterval',preset.get('fragmentInterval',.3)))
         spoken=str(payload.get('text','')).strip()
-        take=self.tts.generate({'text':spoken,'name':(clip['character']+' · '+clip['text'][:25]).strip(' ·')},preset=preset)
-        take['timelineTarget']={'id':clip['id'],'displayText':clip['text'],'character':clip['character'],'voiceId':payload['voiceId']}
+        if not spoken:raise ValueError('请填写配音文字')
+        return {'preset':preset,'request':{'text':spoken,'name':(clip['character']+' · '+clip['text'][:25]).strip(' ·')},'timelineTarget':{'id':clip['id'],'displayText':clip['text'],'character':clip['character'],'voiceId':payload['voiceId']},'projectId':payload.get('project',{}).get('id','')}
+
+    def generate_prepared(self, prepared):
+        take=self.tts.generate(copy.deepcopy(prepared['request']),preset=copy.deepcopy(prepared['preset']))
+        take['timelineTarget']=copy.deepcopy(prepared['timelineTarget'])
         atomic_json(self.tts.records/(take['id']+'.json'),take)
         return take
 

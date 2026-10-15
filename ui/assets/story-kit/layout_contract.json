@@ -1,0 +1,361 @@
+{
+  "version": "1.1",
+  "canvas": [
+    1920,
+    1080
+  ],
+  "coordinate_system": {
+    "origin": "top-left",
+    "unit": "px",
+    "rect": "[x,y,width,height]",
+    "asset_regions": "local to PNG top-left",
+    "placements": "canvas coordinates"
+  },
+  "palette": {
+    "snow": "#f9feff",
+    "ice": "#d1eeff",
+    "sky": "#69b8ef",
+    "blue": "#3777c9",
+    "ink": "#1f4688"
+  },
+  "text_styles": {
+    "body": {
+      "font": "Noto Serif SC",
+      "weight": 600,
+      "size": 34,
+      "color": "#1f4688",
+      "stroke_color": "#f9feff",
+      "stroke_width": 1,
+      "anchor": "glyph-top-left",
+      "line_step": 62
+    },
+    "name": {
+      "font": "Noto Sans SC",
+      "weight": 700,
+      "size": 27,
+      "color": "#f9feff",
+      "stroke_color": "#1f4688",
+      "stroke_width": 1,
+      "anchor": "glyph-top-left"
+    },
+    "choice_idle": {
+      "font": "Noto Serif SC",
+      "weight": 600,
+      "size": 30,
+      "color": "#1f4688"
+    },
+    "choice_selected": {
+      "font": "Noto Serif SC",
+      "weight": 600,
+      "size": 30,
+      "color": "#f9feff"
+    },
+    "panel_title": {
+      "font": "Noto Serif SC",
+      "weight": 600,
+      "size": 34,
+      "color": "#f9feff"
+    }
+  },
+  "standard_dialogue": {
+    "origin": [
+      0,
+      720
+    ],
+    "size": [
+      1920,
+      360
+    ],
+    "composite_asset": "dialogue.04_完整对话框_无对白",
+    "composite_contains": [
+      "base",
+      "decoration",
+      "logo",
+      "nameplate"
+    ],
+    "layered_alternative": [
+      {
+        "asset": "dialogue.01_对话底板_无字",
+        "origin": [
+          0,
+          720
+        ]
+      },
+      {
+        "asset": "dialogue.02_羽翼冰晶装饰层",
+        "origin": [
+          0,
+          720
+        ]
+      },
+      {
+        "asset": "dialogue.冰翼逆时光_同人剧场_字标",
+        "origin": [
+          34,
+          919
+        ],
+        "size": [
+          348,
+          134
+        ]
+      },
+      {
+        "asset": "dialogue.03_姓名牌_无字",
+        "origin": [
+          419,
+          799
+        ],
+        "show_if": "show_name"
+      }
+    ],
+    "body_rect": [
+      425,
+      885,
+      1295,
+      115
+    ],
+    "body_line_origins": [
+      [
+        425,
+        885
+      ],
+      [
+        425,
+        947
+      ]
+    ],
+    "max_lines": 2,
+    "name_rect": [
+      479,
+      816,
+      185,
+      32
+    ],
+    "continue": {
+      "asset": "dialogue.next_idle",
+      "origin": [
+        1756,
+        967
+      ],
+      "size": [
+        44,
+        44
+      ]
+    },
+    "overflow": "paginate; keep 34px body text. Name may use ellipsis after measurement."
+  },
+  "extended_dialogue": {
+    "origin": [
+      0,
+      660
+    ],
+    "size": [
+      1920,
+      420
+    ],
+    "composite_asset": "dialogue.dialogue_extended",
+    "without_nameplate_asset": "dialogue.dialogue_extended_no_nameplate",
+    "optional_nameplate": {
+      "asset": "dialogue.03_姓名牌_无字",
+      "origin": [
+        419,
+        716
+      ]
+    },
+    "name_rect": [
+      479,
+      733,
+      185,
+      32
+    ],
+    "body_rect": [
+      425,
+      798,
+      1295,
+      210
+    ],
+    "body_line_origins": [
+      [
+        425,
+        798
+      ],
+      [
+        425,
+        860
+      ],
+      [
+        425,
+        922
+      ]
+    ],
+    "max_lines": 3,
+    "continue": {
+      "asset": "dialogue.next_idle",
+      "origin": [
+        1756,
+        967
+      ],
+      "size": [
+        44,
+        44
+      ]
+    },
+    "logo": {
+      "origin": [
+        34,
+        919
+      ],
+      "size": [
+        348,
+        134
+      ]
+    }
+  },
+  "narration": {
+    "asset": "dialogue.narration_base",
+    "origin": [
+      0,
+      780
+    ],
+    "body_rect": [
+      290,
+      898,
+      1350,
+      140
+    ],
+    "body_line_origins": [
+      [
+        290,
+        898
+      ],
+      [
+        290,
+        960
+      ]
+    ],
+    "max_lines": 2,
+    "nameplate": false
+  },
+  "choice": {
+    "size": [
+      1040,
+      100
+    ],
+    "origins_for_three": [
+      [
+        440,
+        269
+      ],
+      [
+        440,
+        395
+      ],
+      [
+        440,
+        521
+      ]
+    ],
+    "text_offset": [
+      95,
+      32
+    ],
+    "text_rect_local": [
+      85,
+      26,
+      870,
+      48
+    ],
+    "font_style": "choice_idle",
+    "selected_font_style": "choice_selected",
+    "max_lines": 1,
+    "overflow": "Use choice_tall for two lines; reject text beyond available area instead of silently clipping."
+  },
+  "choice_tall": {
+    "size": [
+      1040,
+      148
+    ],
+    "origins_for_three": [
+      [
+        440,
+        183
+      ],
+      [
+        440,
+        357
+      ],
+      [
+        440,
+        531
+      ]
+    ],
+    "text_offset": [
+      95,
+      34
+    ],
+    "text_rect_local": [
+      85,
+      29,
+      870,
+      82
+    ],
+    "line_step": 40,
+    "max_lines": 2,
+    "font_style": "choice_idle",
+    "selected_font_style": "choice_selected"
+  },
+  "optional_game_toolbar": {
+    "visible_in_video_default": false,
+    "origin": [
+      84,
+      1028
+    ],
+    "button_size": [
+      144,
+      50
+    ],
+    "step_x": 146,
+    "max_buttons": 12,
+    "dialogue_policy": "Reserve footer for toolbar; keep standard 2-line dialogue. Never overlay extended third line with additional controls."
+  },
+  "eyecatch": {
+    "assets": [
+      "transition.eyecatch_day",
+      "transition.eyecatch_night"
+    ],
+    "fit": "contain",
+    "caption_default": null,
+    "overlay_dialogue_default": false
+  },
+  "time_card": {
+    "assets": [
+      "transition.time_card_day_blank",
+      "transition.time_card_night_blank"
+    ],
+    "caption_default": null,
+    "show_caption_default": false,
+    "text_rect": [
+      510,
+      390,
+      900,
+      260
+    ]
+  },
+  "progress": {
+    "track": "controls.progress_track",
+    "fill": "controls.progress_fill",
+    "range": [
+      0,
+      1
+    ],
+    "method": "clip original fill from left; 0 is no fill, 1 is full width"
+  },
+  "font_dependencies": {
+    "bundled": false,
+    "required": [
+      "Noto Serif SC",
+      "Noto Sans SC"
+    ],
+    "on_missing": "Report missing font; no silent system-font fallback."
+  }
+}

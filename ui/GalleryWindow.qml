@@ -87,8 +87,7 @@ Window {
     readonly property int colGap: 8
     readonly property int rowGap: 8
     //右侧那一列（抓手 / 面部按钮）的宽度随窗口自适应
-    readonly property int rightColWidth:
-        Math.max(30, Math.min(42, Math.round(width * 0.095)))
+    readonly property int rightColWidth: 42
     //左侧一列（搜索框 / 三个下拉）宽度由窗口宽度算出，不写死
     readonly property int filterRowWidth:
         Math.max(160, Math.round(width) - 16 - 16 - rightColWidth - colGap)
@@ -324,20 +323,9 @@ Window {
                 rotation: 12
             }
 
-            Image {
-                id: brandAvatar
-                anchors.left: parent.left
-                anchors.leftMargin: 16
-                anchors.verticalCenter: parent.verticalCenter
-                width: 42
-                height: 42
-                source: "avatar-fox-round.png"
-                fillMode: Image.PreserveAspectCrop
-                smooth: true
-            }
             Column {
-                anchors.left: brandAvatar.right
-                anchors.leftMargin: 11
+                anchors.left: parent.left
+                anchors.leftMargin: 20
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 1
                 Text { text: "冰翼取用精灵"; color: "white"; font.pixelSize: 17; font.bold: true }
@@ -383,12 +371,10 @@ Window {
             id: resizeGrip
             objectName: "resizeGrip"
             width: gallery.rightColWidth
-            //只占第一行的高度（第二行要从游戏下拉的 top 开始，中间还有 rowGap）。
-            height: 42 + gallery.rowGap
+            height: searchBox.height
             anchors.right: parent.right
             anchors.rightMargin: 16        //与「面部」按钮右边缘严格齐平
-            anchors.top: parent.top
-            anchors.topMargin: titleBar.height + 14
+            anchors.top: searchBox.top
             radius: 12
             color: gripArea.containsMouse || gripArea.pressed ? "#dceefc" : "#f4fbff"
             border.width: 1
@@ -422,6 +408,7 @@ Window {
 
         Rectangle {
             id: searchBox
+            objectName: "searchBox"
             //窗口变窄时先保住搜索框的最小宽度，再让"卡片宽度"去承担压缩
             anchors.left: parent.left
             anchors.leftMargin: 16

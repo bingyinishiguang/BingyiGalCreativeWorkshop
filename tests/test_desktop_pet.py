@@ -27,7 +27,7 @@ class RosterTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             library = _make_library(directory)
             roster = build_roster(library)
-            #特殊分区不进入桌宠列表
+
             self.assertEqual(len(roster), 2)
             self.assertTrue(all(item["category"] == "normal" for item in roster))
             self.assertFalse(any(item["missing"] for item in roster))
@@ -46,11 +46,11 @@ class RosterTest(unittest.TestCase):
 
     def test_cycle_wraps_around(self):
         self.assertEqual(next_index(3, 0), 1)
-        self.assertEqual(next_index(3, 2), 0)  #到最后一张后回到第一张
-        self.assertEqual(prev_index(3, 0), 2)  #第一张再上一张到最后一张
+        self.assertEqual(next_index(3, 2), 0)
+        self.assertEqual(prev_index(3, 0), 2)
         self.assertEqual(prev_index(3, 2), 1)
-        self.assertEqual(next_index(0, 0), -1)  #空列表安全
-        self.assertEqual(prev_index(1, 0), 0)  #单张原地循环
+        self.assertEqual(next_index(0, 0), -1)
+        self.assertEqual(prev_index(1, 0), 0)
 
 
 class GalleryFilterTest(unittest.TestCase):
@@ -72,7 +72,7 @@ class GalleryFilterTest(unittest.TestCase):
             by_character = build_gallery_page(library, "", False, 0, character="角色A")
             self.assertEqual(by_character["total"], 1)
 
-            #界面要靠这三份清单填下拉框与标签芯片
+
             self.assertIn("开心", by_tag["tags"])
             self.assertIn("作品", by_tag["games"])
             self.assertIn("角色A", by_tag["characters"])
@@ -82,8 +82,8 @@ class GalleryFilterTest(unittest.TestCase):
             library = _make_library(directory)
             page = build_gallery_page(library, "", False, 0)
             self.assertTrue(page["items"])
-            #分页只返回图片路径，Qt 桥按相同图片生成头部特写。
-            #这里锁住"每张卡片都有图可裁"这个前提。
+
+
             for row in page["items"]:
                 self.assertTrue(row["imagePath"].is_file())
 
@@ -94,7 +94,7 @@ class GalleryFilterTest(unittest.TestCase):
             state.save_gallery_rect(1200, 40, 460, 640)
             self.assertEqual(state.load()["galleryRect"],
                              {"x": 1200, "y": 40, "width": 460, "height": 640})
-            #桌宠自己保存几何时不能把总览那份弄丢
+
             state.save(100, 100, 240, 345, "abc", "M")
             self.assertEqual(state.load()["galleryRect"]["width"], 460)
 
@@ -123,7 +123,7 @@ class DefaultPositionTest(unittest.TestCase):
             state = DesktopPetState(Path(directory))
             state.save_default_position(700, 300)
             self.assertEqual((state.load()["defaultX"], state.load()["defaultY"]), (700, 300))
-            #模拟用户又拖了桌宠：save() 会整份覆写状态文件
+
             state.save(999, 888, 240, 345, "abc", "M")
             loaded = state.load()
             self.assertEqual((loaded["defaultX"], loaded["defaultY"]), (700, 300),
@@ -196,7 +196,7 @@ class StateTest(unittest.TestCase):
             self.assertIsNone(default["x"])
             self.assertEqual(default["width"], DesktopPetState.DEFAULT_WIDTH)
             self.assertEqual(default["sizeTier"], "M")
-            #写坏状态文件后仍回退默认，不抛异常
+
             state.file.write_text("{不是合法JSON", encoding="utf-8")
             self.assertEqual(state.load(), default)
 
@@ -210,13 +210,13 @@ class StateTest(unittest.TestCase):
             self.assertEqual((loaded["width"], loaded["height"]), PET_SIZES["M"])
 
     def test_clamp_keeps_window_on_screen(self):
-        #完全跑出右下会被拉回
+
         self.assertEqual(clamp_to_area(5000, 5000, 320, 460, 0, 0, 1920, 1080),
                          (1600, 620))
-        #完全跑出左上会被拉回
+
         self.assertEqual(clamp_to_area(-500, -500, 320, 460, 0, 0, 1920, 1080),
                          (0, 0))
-        #正常位置保持不变
+
         self.assertEqual(clamp_to_area(100, 100, 320, 460, 0, 0, 1920, 1080),
                          (100, 100))
 
@@ -232,11 +232,11 @@ class StateTest(unittest.TestCase):
         x, y = gallery_window_position(pet_x, pet_y, pet_w, pet_h,
                                        gallery_w, gallery_h, 0, 0, 1920, 1040)
         assert x == pet_x + pet_w // 2 - gallery_w // 2, "中心 x 应对齐桌宠中心"
-        #y 会被夹进工作区，所以验"未夹紧时同心、夹紧后不越界"
+
         ideal_y = pet_y + pet_h // 2 - gallery_h // 2
         assert y == max(10, min(ideal_y, 1040 - 10 - gallery_h))
         assert y >= 10 and y + gallery_h <= 1040 - 10
-        #桌宠贴左边缘：同心位置会跑出屏幕（20+120-240 = -100），所以被夹到左边界
+
         x2, y2 = gallery_window_position(20, 850, 240, 345, 480, 640, 0, 0, 1920, 1040)
         assert x2 == 10, "越界时必须夹到工作区左边"
         assert y2 + 640 <= 1040 - 10
@@ -273,8 +273,8 @@ class MalformedStateTest(unittest.TestCase):
             with self.subTest(payload=payload[:40]):
                 with tempfile.TemporaryDirectory() as directory:
                     (Path(directory) / app_paths.PET_STATE_NAME).write_text(payload, encoding="utf-8")
-                    loaded = DesktopPetState(Path(directory)).load()  #不应抛异常
-                    #至少要落回可用的默认几何
+                    loaded = DesktopPetState(Path(directory)).load()
+
                     self.assertGreaterEqual(loaded["width"], 80)
                     self.assertGreaterEqual(loaded["height"], 80)
                     self.assertIn(loaded["sizeTier"], PET_SIZES)

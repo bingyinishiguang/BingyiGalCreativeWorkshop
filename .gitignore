@@ -31,6 +31,8 @@ htmlcov/
 /作品素材包/
 /文档/*.docx
 /文档/项目导读.md
+/文档/*验收*.md
+/文档/素材加工与混合粗剪方向.md
 /assets/
 /private-assets/
 /source-library/
@@ -61,6 +63,7 @@ htmlcov/
 
 #Development caches and temporary files
 /node_modules/
+/.test-*/
 /test-results/
 /playwright-report/
 *.log

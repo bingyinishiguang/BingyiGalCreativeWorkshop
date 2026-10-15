@@ -1,59 +1,42 @@
-const e2e = require('./ui_e2e_helper.cjs');
-const { chromium } = e2e;
-
-(async () => {
-  const browser = await chromium.launch({ executablePath: e2e.requireBrowser(), headless: true });
-  const page = await browser.newPage({ viewport: { width: 1366, height: 820 } });
-  const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
-  const settings = { singleMode: 'browser', singlePath: '', batchPath: '',
-    defaultBatchPath: 'F:\\Bingyi\\工作数据\\exports', effectiveBatchPath: 'F:\\Bingyi\\工作数据\\exports',
-    libraryPath: 'F:\\Bingyi\\工作数据\\exports\\立绘库' };
-  let saved = null;
-  let singleExport = null;
-  await page.route('**/api/settings', async route => {
-    if (route.request().method() === 'POST') {
-      saved = route.request().postDataJSON();
-      Object.assign(settings, saved);
-    }
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(settings) });
-  });
-  await page.route('**/api/export-file', async route => {
-    singleExport = route.request().postDataJSON();
-    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ path: 'F:\\Bingyi\\单张\\角色.png' }) });
-  });
-  try {
-    await page.goto(process.argv[2]);
-    await page.waitForFunction(() => document.querySelector('#preview')?.naturalWidth > 0);
-    await page.locator('#settings-button').click();
-    await page.locator('#settings-page').waitFor({ state: 'visible' });
-    if (!await page.locator('#settings-mode-button').isVisible()) throw new Error('界面模式入口消失');
-    if (!await page.locator('.brand-avatar').isVisible()) throw new Error('创作者头像消失');
-    if (await page.locator('#settings-library-path').count()) throw new Error('设置页仍显示立绘库路径');
-    await page.locator('input[name="single-save-mode"][value="folder"]').check();
-    await page.locator('#single-path').fill('F:\\Bingyi\\单张');
-    await page.locator('#batch-path').fill('F:\\Bingyi\\批量');
-    await page.locator('#nav-workbench').click();
-    await page.locator('#settings-button').click();
-    if (await page.locator('#batch-path').inputValue() !== 'F:\\Bingyi\\批量') throw new Error('未保存的设置在切页后丢失');
-    await page.locator('#save-settings').click();
-    await page.waitForFunction(() => document.querySelector('#settings-status')?.textContent.includes('已保存'));
-    if (!saved || saved.singleMode !== 'folder' || saved.batchPath !== 'F:\\Bingyi\\批量') throw new Error('设置保存请求不正确');
-    await page.locator('#nav-workbench').click();
-    if (await page.locator('#download').textContent() !== '保存当前立绘') throw new Error('单张按钮未随设置更新');
-    await page.locator('#download').click();
-    await page.waitForFunction(() => document.querySelector('#export-status')?.textContent.includes('已保存'));
-    if (!singleExport?.game || singleExport.special !== false) throw new Error('单张文件保存请求不正确');
-    await page.locator('#settings-button').click();
-    await page.waitForFunction(() => document.querySelector('#settings-status')?.textContent.includes('已就绪'));
-    await page.screenshot({ path: '工作数据/exports/settings-desktop-smoke.png' });
-    await page.setViewportSize({ width: 360, height: 740 });
-    await page.screenshot({ path: '工作数据/exports/settings-mobile-smoke.png', fullPage: true });
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
-    if (overflow) throw new Error('设置页窄屏出现水平溢出');
-    if (errors.length) throw new Error(errors.join(' | '));
-    console.log('设置导航、路径保存、单张保存、隐藏立绘库路径及窄屏布局通过');
-  } finally {
-    await browser.close();
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const e2e=require('./ui_e2e_helper.cjs');
+(async()=>{
+ const out=path.resolve(process.argv[3]||'工作数据/settings-check');fs.mkdirSync(out,{recursive:true});
+ const browser=await e2e.chromium.launch({executablePath:e2e.requireBrowser(),headless:true});
+ const page=await browser.newPage({viewport:{width:1366,height:820}}),errors=[],writes=[];
+ page.on('pageerror',e=>errors.push(e.message));await require('./ui_composer_fixture.cjs').mockComposer(page);
+ const settings={singleMode:'browser',singlePath:'',batchPath:'',dragPath:'',defaultBatchPath:'Z:\\Example\\exports',effectiveBatchPath:'Z:\\Example\\exports',libraryPath:'Z:\\Example\\Library'};
+ let exports=null,activeWrites=0,maxActive=0,delayNext=false;
+ await page.route('**/api/settings',async route=>{
+  if(route.request().method()==='POST'){
+   const values=route.request().postDataJSON();writes.push(values);activeWrites++;maxActive=Math.max(maxActive,activeWrites);
+   if(delayNext){delayNext=false;await new Promise(r=>setTimeout(r,1000));}
+   Object.assign(settings,values);activeWrites--;
   }
-})().catch(error => { console.error(error); process.exitCode = 1; });
+  await route.fulfill({json:{...settings}});
+ });
+ await page.route('**/api/export-file',async route=>{exports=route.request().postDataJSON();await route.fulfill({status:201,json:{path:'Z:\\Example\\single\\角色.png'}});});
+ try{
+  await page.goto(process.argv[2]);await page.locator('#boot-overlay').waitFor({state:'hidden'});await page.waitForFunction(()=>document.querySelector('#preview').naturalWidth>0);
+  await page.locator('#settings-button').click();await page.locator('[data-settings-open="panel-single"]').click();
+  await page.locator('input[name="single-save-mode"][value="folder"]').check();
+  await page.waitForFunction(()=>document.querySelector('#settings-status').textContent.includes('已保存'));
+  delayNext=true;await page.locator('#single-path').fill('Z:\\Example\\first');
+  await page.waitForResponse(r=>r.url().endsWith('/api/settings')&&r.request().method()==='POST');
+  // Begin another delayed write, then edit and navigate while it is in flight.
+  delayNext=true;const before=writes.length;await page.locator('#single-path').fill('Z:\\Example\\old');
+  while(writes.length===before)await page.waitForTimeout(25);
+  await page.locator('#single-path').fill('Z:\\Example\\latest');
+  await page.locator('#nav-workbench').click();await page.locator('#settings-button').click();await page.locator('[data-settings-open="panel-single"]').click();
+  assert.equal(await page.locator('#single-path').inputValue(),'Z:\\Example\\latest');
+  await page.waitForFunction(()=>document.querySelector('#settings-status').textContent.includes('已保存'));
+  assert.equal(settings.singlePath,'Z:\\Example\\latest');assert.equal(maxActive,1);
+  assert.equal(await page.locator('#single-path').inputValue(),'Z:\\Example\\latest');
+  await page.locator('#settings-back').click();await page.locator('[data-settings-open="panel-batch"]').click();await page.locator('#batch-path').fill('Z:\\Example\\batch');
+  await page.waitForFunction(()=>document.querySelector('#settings-status').textContent.includes('已保存'));assert.equal(settings.batchPath,'Z:\\Example\\batch');
+  await page.locator('#nav-workbench').click();await page.locator('#download').click();await page.waitForFunction(()=>document.querySelector('#export-status').textContent.includes('已保存'));assert(exports.game&&exports.special===false);
+  await page.locator('#settings-button').click();await page.locator('[data-settings-open="panel-single"]').click();await page.screenshot({path:path.join(out,'settings-desktop.png')});
+  await page.setViewportSize({width:360,height:740});assert(!(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)));await page.screenshot({path:path.join(out,'settings-mobile.png'),fullPage:true});
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks:['grouped settings','serialized saves','newer edits survive delayed response and navigation','persisted paths','single export','narrow viewport'],writes:writes.length,maxActive,errors}));
+ }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

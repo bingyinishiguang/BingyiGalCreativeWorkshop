@@ -27,8 +27,12 @@ def main():
     parser.add_argument('--draft-directory', default='')
     parser.add_argument('--ui-smoke', action='store_true', help='Run the sentence review browser workflow against the frozen server')
     parser.add_argument('--draft-entry-ui', action='store_true', help='Verify the ordinary draft entry against the frozen server')
+    parser.add_argument('--fault-ui', action='store_true', help='Verify delayed responses and recoverable UI failures against the frozen server')
     parser.add_argument('--tts-inference', action='store_true', help='Synthesize both voices using an external component')
     parser.add_argument('--tts-component', type=Path)
+    parser.add_argument('--bilingual-input',type=Path,help='Run the bilingual draft browser workflow with supplied local fixture paths')
+    parser.add_argument('--bilingual-one-click',action='store_true',help='Verify default one-click draft publication without manual review')
+    parser.add_argument('--assistant-settings',type=Path,help='Copy model/ASR settings only into this isolated test profile')
     args = parser.parse_args()
     root = args.root.resolve()
     workspace_data = Path(__file__).resolve().parents[1] / '工作数据'
@@ -37,6 +41,13 @@ def main():
     root.mkdir(parents=True, exist_ok=True)
     appdata = root / 'appdata'
     data = appdata / 'BingyiGalCreativeWorkshop'
+    records=data/'exports'/'Audio'/'records'
+    records.mkdir(parents=True,exist_ok=True)
+    broken_record=records/('e'*32+'.json')
+    broken_record.write_text('{incomplete',encoding='utf-8')
+    if args.assistant_settings:
+        (data/'SubtitleAssistant').mkdir(parents=True,exist_ok=True)
+        shutil.copy2(args.assistant_settings,data/'SubtitleAssistant/settings.json')
     sprites = SpriteLibrary(data / 'exports' / 'Library')
     actor = Image.new('RGBA', (400, 700))
     draw = ImageDraw.Draw(actor)
@@ -84,6 +95,8 @@ def main():
                 raise RuntimeError(path+': '+error.read(8000).decode('utf-8','replace')) from error
         for asset in ('production.js','production.css','production_v2.js','text_workspace.js','cut_geometry.js','cut_validation.js','cut_workspace.js','cut_composition.js','cut_studio.js','cut_script.js'):
             assert opener.open(base+'/ui/'+asset).status == 200
+        audio_state=api('/api/audio')
+        assert len(audio_state['warnings'])==1 and audio_state['warnings'][0]['record']==broken_record.name
         tts_verified=[]
         if args.tts_inference:
             assert args.tts_component, '必须明确指定独立组件'
@@ -130,6 +143,7 @@ def main():
         with wave.open(str(voice_path),'wb') as wav:
             wav.setparams((1,2,8000,0,'NONE','not compressed'));wav.writeframes(bytes(32592))
         voice=api('/api/audio/import',{'paths':[str(voice_path)]})['results'][0]['item']
+        assert voice['duration']>0 and broken_record.read_text(encoding='utf-8')=='{incomplete'
         transform=dict(scaleX=170,scaleY=170,x=90,y=-280,rotation=0,uniform=True)
         base_scene=dict(background=item['id'],duration=10,actors=[dict(id=actor_id,slot=0,alignment=group['members'][0],transform=transform)])
         preset=api('/api/composition/preset-save',dict(name='Frozen landscape',width=1920,height=1080,scene=base_scene))
@@ -155,7 +169,20 @@ def main():
         if args.draft_entry_ui:
             subprocess.run(['node', str(Path(__file__).parent.parent/'tests/ui_draft_workflow_smoke.cjs'), base+'/', str(root/'draft-entry-ui'), '--entry-only'], check=True, timeout=180, creationflags=0x08000000)
             entry_verified = True
+        if args.fault_ui:
+            for suite in ('ui_async_failures.cjs', 'ui_settings_failure.cjs', 'ui_boot_recovery.cjs',
+                          'ui_story_import_transactions.cjs', 'ui_project_loading.cjs',
+                          'ui_subtitle_import.cjs', 'ui_configuration_transactions.cjs'):
+                subprocess.run(['node',str(Path(__file__).parent.parent/'tests'/suite),base+'/',str(root/'fault-ui'/suite)],check=True,timeout=180,creationflags=0x08000000)
         video_verified = False
+        bilingual_verified = False
+        if args.bilingual_input:
+            subprocess.run(['node',str(Path(__file__).parent.parent/('tests/ui_bilingual_one_click.cjs' if args.bilingual_one_click else 'tests/ui_bilingual_dialogue.cjs')),base+'/',str(args.bilingual_input.resolve()),str(root/'bilingual-ui')],check=True,timeout=960,creationflags=0x08000000)
+            if args.bilingual_one_click:
+                subprocess.run(['node',str(Path(__file__).parent.parent/'tests/ui_bilingual_save_choices.cjs'),base+'/',str(args.bilingual_input.resolve()),str(root/'save-choices-ui')],check=True,timeout=180,creationflags=0x08000000)
+            if args.bilingual_one_click:
+                subprocess.run(['node',str(Path(__file__).parent.parent/'tests/ui_bilingual_portrait_labels.cjs'),base+'/',str(args.bilingual_input.resolve()),str(root/'portrait-labels-ui')],check=True,timeout=120,creationflags=0x08000000)
+            bilingual_verified = True
         ffmpeg = shutil.which('ffmpeg')
         if ffmpeg:
             video = root / 'test-video.mp4'
@@ -189,6 +216,8 @@ def main():
                   'petWindowReady':ready,'scriptedDraft':scripted_export['path'],
                   'sentencePlanVerified':True,'frozenBrowserUI':ui_verified,'ordinaryDraftEntryUI':entry_verified,'jianyingOpened':False}
         report['externalTTS']=tts_verified
+        report['audioMetadataRecovery']=True
+        report['bilingualDraftUI']=bilingual_verified
         (root/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
         print(json.dumps(report,ensure_ascii=True))
     finally:

@@ -4,11 +4,13 @@ const assert=require('node:assert/strict'),fs=require('fs'),path=require('path')
  const out=process.argv[3];fs.mkdirSync(out,{recursive:true});const checks=[];
  const p=await browser.newPage({viewport:{width:1366,height:900}}),errors=[];
  p.on('pageerror',e=>errors.push(e.message));p.on('dialog',d=>d.accept());
+ // Exercise the missing optional component branch independently of a source tts_bundle.
+ await p.route('**/api/localtts/component',r=>r.fulfill({json:{connected:false,serviceState:'stopped',message:'尚未连接外置配音组件；历史音频仍可使用'}}));
  try{
   await p.goto(process.argv[2]);await p.locator('#boot-overlay').waitFor({state:'hidden'});
-  await p.locator('#nav-tools').click();assert.equal(await p.locator('#tools-page .tool-card').count(),2);
+  await p.locator('#nav-tools').click();assert.equal(await p.locator('#tools-page .tool-card').count(),4);
   assert(!(await p.locator('#tools-page').innerText()).includes('语音配音'));
-  await p.screenshot({path:path.join(out,'toolbox.png')});checks.push('Two toolbox entries');
+  await p.screenshot({path:path.join(out,'toolbox.png')});checks.push('Creation and existing-work toolbox entries');
   await p.locator('#settings-button').click();await p.locator('#open-localtts').click();
   await p.locator('#tts-component-info').waitFor({state:'visible'});await p.locator('#tts-back').click();assert(await p.locator('#settings-list').isVisible());checks.push('Optional voice entry in settings');
   await p.locator('#nav-tools').click();await p.locator('#open-roughcut').click();
@@ -40,7 +42,7 @@ const assert=require('node:assert/strict'),fs=require('fs'),path=require('path')
    fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({passed:true,checks,pageErrors:errors,scope:'Frozen entry and ordinary text; historical take checks executed separately in source UI'},null,2));
    console.log(checks.join('\n'));return;
   }
-  //Reuse an actual historical acceptance take; do not claim new inference.
+  //Reuse an existing voice take to test playback and application without running inference.
   const take=await p.evaluate(async()=>{const h=await cutEditor.api('/api/localtts/history');return h.items.find(t=>t.timelineTarget?.id);});
   assert(take);
   await p.evaluate(async ({bg,take})=>cutEditor.applyTimeline(await cutEditor.api('/api/roughcut/save',{name:'已有配音界面',width:1920,height:1080,fps:30,scenes:[{background:bg,duration:6,actors:[]}],audioClips:[],textClips:[{id:take.timelineTarget.id,text:take.timelineTarget.displayText,character:take.timelineTarget.character,start:0,duration:6}]})),{bg,take});

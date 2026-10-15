@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import sys as _sys_boot
 
-#输出统一用 UTF-8，避免 Windows 控制台编码无法表示某些字符。
-#print 就会抛 UnicodeEncodeError 直接崩，用户只看到一闪而过的报错。
+
 for _stream in (_sys_boot.stdout, _sys_boot.stderr):
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -65,7 +64,7 @@ def powershell(command: str, timeout: int = 30) -> str:
 def kill_test_processes(install_dir: Path) -> None:
     """只结束从本次测试安装目录启动的进程。"""
     escaped = str(install_dir).replace("'", "''")
-    #只清理测试安装目录的程序及其持有 DLL 的子进程。
+
     powershell(
         f"$ownedRoot='{escaped}'+'\\'; 1..3 | ForEach-Object {{ "
         "Get-Process -ErrorAction SilentlyContinue | "
@@ -142,7 +141,7 @@ def main() -> int:
     if install_dir!=DEFAULT_INSTALL_DIR.resolve() and not (
             install_dir.is_relative_to(test_root) and install_dir.name.startswith('bgw-verify-')):
         raise ValueError('测试安装目录须位于工作数据/临时下并以 bgw-verify- 开头，或使用默认测试目录')
-    #沙箱数据目录：只删这个，绝不碰真实的 %APPDATA%\BingyiGalCreativeWorkshop。
+
     sandbox_appdata = install_dir.parent / "bgw-verify-appdata"
     sandbox_data = sandbox_appdata / "BingyiGalCreativeWorkshop"
 
@@ -160,7 +159,7 @@ def main() -> int:
     if not check(installer.is_file(), "安装包存在"):
         return 1
 
-    #干净起点：清掉上次残留的测试目录与测试进程
+
     kill_test_processes(install_dir)
     kill_uninstallers(install_dir)
     time.sleep(1)
@@ -170,7 +169,7 @@ def main() -> int:
 
     main_proc: subprocess.Popen | None = None
     try:
-        #静默安装
+
         print("[1/6] 静默安装")
         install_log = install_dir.parent / "installation.log"
         install_log.parent.mkdir(parents=True, exist_ok=True)
@@ -182,7 +181,7 @@ def main() -> int:
         time.sleep(2)
         check(done.returncode == 0, "安装器退出码为 0", f"实际 {done.returncode}")
 
-        #关键文件是否落地
+
         print("[2/6] 安装目录内容")
         exe = install_dir / "BingyiGalCreativeWorkshop.exe"
         if not check(exe.is_file(), "主程序已安装", str(exe)):
@@ -201,7 +200,7 @@ def main() -> int:
             check(ok, f"{name} 已生成（避免『选择应用』弹框）",
                   f"{target.stat().st_size / 1024:.1f} KB" if ok else "缺失")
 
-        #启动冻结版（APPDATA 指向沙箱）
+
         print("[3/6] 启动冻结版（数据目录已沙箱隔离）")
         sandbox_appdata.mkdir(parents=True, exist_ok=True)
         child_env = dict(os.environ)
@@ -229,7 +228,7 @@ def main() -> int:
             check(response.status == 200 and bool(response.read()),
                   "界面首页可正常返回")
 
-        #冻结版读到的品牌配置
+
         print("[4/6] 冻结版读到的配置")
         brand = json.loads(opener.open(
             f"http://127.0.0.1:{port}/api/brand", timeout=20).read().decode("utf-8"))
@@ -254,14 +253,14 @@ def main() -> int:
         try:
             with opener.open(request, timeout=25) as response:
                 opened = json.loads(response.read().decode("utf-8")).get("path", "")
-            #验证安装目录内的真实文件，不能回退到源码目录。
+
             same_dir = Path(opened).parent.resolve() == install_dir.resolve()
             check(same_dir and Path(opened).is_file(),
                   "打开的是安装目录里的 LICENSE.txt", str(opened))
         except Exception as error:
             check(False, "打开 LICENSE.txt 失败", f"{type(error).__name__}: {error}")
 
-        #点「冰翼取用精灵」（历史崩溃点）
+
         print("[6/6] 点「冰翼取用精灵」（这一步曾经让打包版直接崩）")
         before = process_count("IceWingCompanion")
         request = urllib.request.Request(
@@ -275,7 +274,7 @@ def main() -> int:
         except Exception as error:
             check(False, "/api/picker/open 请求失败", f"{type(error).__name__}: {error}")
 
-        #观察 12 秒：桌宠若崩会立刻消失
+
         samples = [process_count("IceWingCompanion")]
         for _ in range(6):
             time.sleep(2)
@@ -284,7 +283,7 @@ def main() -> int:
         check(max(samples) > 0, "桌宠进程真的起来了",
               f"点击前 {before}，之后 {samples}")
 
-        #日志里不能出现那个具体的崩溃（从沙箱读，不读用户的）
+
         topmost = sandbox_data / "topmost.log"
         text = topmost.read_text(encoding="utf-8", errors="replace") if topmost.is_file() else ""
         check("PET_READY hwnd=" in text and "visible=True" in text
@@ -297,10 +296,10 @@ def main() -> int:
         else:
             info("托盘进程", "日志无记录（不判失败）")
 
-        #主程序本身在这整段时间里也要活着
+
         check(main_proc.poll() is None, "主程序全程存活")
 
-        #汇总
+
         failed = [label for ok, label in results if not ok]
         print()
         print("=" * 68)
@@ -327,20 +326,20 @@ def main() -> int:
         kill_test_processes(install_dir)
         uninstaller = install_dir / "unins000.exe"
         if uninstaller.is_file():
-            #静默卸载，避免消息框阻塞测试。
-            #kill_uninstallers(install_dir) 收尾，保证不会在用户屏幕上留下窗口。
+
+
             subprocess.run(
                 [str(uninstaller), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"],
                 capture_output=True, text=True, timeout=300,
                 encoding="utf-8", errors="replace")
-            #卸载器异步退出；等待释放目录后再清理测试文件。
-            #必须等它真做完，否则会误报"已清理"却留着整个目录。
+
+
             gone = wait_gone(install_dir)
             if not gone:
                 print(f"  [FAIL] 卸载后目录仍在：{install_dir}")
                 results.append((False, "卸载后测试安装目录已清除"))
                 uninstall_failed = True
-        #收尾：结束卸载器（含 %TEMP% 里的副本），否则它会在屏幕上弹窗
+
         kill_uninstallers(install_dir)
         if args.keep:
             print(f"  --keep：保留 {install_dir} 与 {sandbox_appdata}")

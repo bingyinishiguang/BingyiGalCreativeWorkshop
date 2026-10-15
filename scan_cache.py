@@ -7,10 +7,10 @@ import pickle
 import time
 from pathlib import Path
 
-#扫描结果结构一变就要 +1（见模块开头第 1 条保险）。
+
 SCAN_CACHE_VERSION = 2
 CACHE_FILENAME = "scan-cache.pkl"
-#只关心扫描器真正会读的文件类型；其它文件（缩略图、备份等）不参与指纹。
+
 _FINGERPRINT_SUFFIXES = {".txt", ".sinfo", ".pbd", ".png", ".webp"}
 
 
@@ -52,8 +52,8 @@ def fingerprint(roots: list[Path]) -> tuple[str, int]:
                                 stat = entry.stat()
                                 items.append((child_rel, stat.st_size, stat.st_mtime_ns))
                     except OSError:
-                        #单个文件读不到（占用/权限）不该让整次检查失败；
-                        #它不参与指纹，代价是那一处变化可能不被察觉。
+
+
                         continue
         except OSError:
             continue
@@ -94,12 +94,12 @@ def load(data_dir: Path, roots: list[Path]):
             txt,
             list(payload.get("mediaWarnings") or []),
             list(payload.get("txtWarnings") or []),
-            #扫描统计（.pbd/.txt/文件数）也一起存：它本来要把整个素材库再遍历一遍
-            #（全量库约 900ms），只为了几行诊断日志。命中缓存时直接用存下来的。
+
+
             list(payload.get("scanSummaryRoots") or []),
         )
     except Exception:
-        #缓存损坏/权限/反序列化不兼容：当作没有缓存。
+
         return None
 
 
@@ -113,7 +113,7 @@ def save(data_dir: Path, roots: list[Path], characters, lime, txt,
             "version": SCAN_CACHE_VERSION,
             "fingerprint": digest,
             "fileCount": count,
-            #保存扫描根列表，便于判断缓存失效原因。
+
             "roots": [str(Path(r)) for r in roots],
             "createdAt": time.strftime("%Y-%m-%d %H:%M:%S"),
             "scanSummaryRoots": list(scan_summary_roots or []),
@@ -125,7 +125,7 @@ def save(data_dir: Path, roots: list[Path], characters, lime, txt,
         }
         path = cache_path(data_dir)
         path.parent.mkdir(parents=True, exist_ok=True)
-        #先写临时文件再原子替换：中途崩溃不会留下半截缓存。
+
         temp = path.with_suffix(path.suffix + ".tmp")
         with temp.open("wb") as handle:
             pickle.dump(payload, handle, protocol=pickle.HIGHEST_PROTOCOL)

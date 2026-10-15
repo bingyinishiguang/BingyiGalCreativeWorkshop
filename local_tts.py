@@ -412,9 +412,22 @@ class LocalTTS:
                 if self.service_lease is not None:
                     self.service_lease.close();self.service_lease=None
 
-    def history(self):
+    def history(self, trash=False):
         items=[json.loads(p.read_text('utf-8')) for p in self.records.glob('*.json')]
+        items=[item for item in items if bool(item.get('deleted')) == bool(trash)]
         return {'items':sorted(items,key=lambda r:r['created'],reverse=True)}
+
+    def trash_take(self, take_id, restore=False):
+        if not isinstance(take_id,str) or len(take_id)!=32 or any(c not in '0123456789abcdef' for c in take_id):
+            raise ValueError('配音版本编号不正确')
+        with self.lock:
+            path=self.records/(take_id+'.json')
+            if not path.is_file():
+                raise ValueError('配音版本不存在')
+            item=json.loads(path.read_text('utf-8'))
+            item['deleted']=not restore
+            atomic_json(path,item)
+            return {'id':take_id,'deleted':item['deleted']}
 
     def file(self, take_id):
         if not isinstance(take_id,str) or len(take_id)!=32 or any(c not in '0123456789abcdef' for c in take_id):

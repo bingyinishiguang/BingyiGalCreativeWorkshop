@@ -16,13 +16,18 @@
  document.querySelector('.app-shell').append(page);
  const msg=text=>$('cfg-status').textContent=text;
  const key=()=>JSON.stringify(config);
+ const episodeKey=()=>JSON.stringify(episode);
+ baseline=key();let episodeBaseline=episodeKey();
+ const hasUnsavedWork=()=>key()!==baseline||episodeKey()!==episodeBaseline;
+ window.workshopActivity ||= {};
+ window.workshopActivity.configuration=()=>busy||hasUnsavedWork();
  const state=()=>({config:clone(config),episode:clone(episode),selected:clone(selected),ready:[...readyRanges]});
  function remember(){undo.push(state());if(undo.length>80)undo.shift();redo=[];}
  function changed(){checked=null;stopPlayback();render();}
  function change(action){remember();action();changed();}
  function restore(s){config=clone(s.config);episode=clone(s.episode);selected=clone(s.selected);readyRanges=new Set(s.ready);changed();}
  function setRole(id,role){roles[id]=role;try{localStorage.setItem('bingyi-audio-roles',JSON.stringify(roles));}catch{}}
- function select(type,id){selected={type,id};renderInspector();renderPreview();renderLanes();page.classList.add('show-inspector');}
+ function select(type,id){stopPlayback();selected={type,id};renderInspector();renderPreview();renderLanes();page.classList.add('show-inspector');}
  const info=id=>media.find(m=>m.id===id),sound=id=>audio.find(m=>m.id===id);
  const assetURL=(kind,id,thumb=false)=>'/api/'+(kind==='audio'?'audio/media':'backgrounds/'+(thumb?'thumb':'media'))+'?id='+encodeURIComponent(id);
  const title=(kind,id)=>((kind==='audio'?sound(id):info(id))?.name||'素材丢失，请替换');
@@ -66,7 +71,7 @@
   });
   page.classList.add('show-inspector');msg(kind==='audio'?'已按投放轨道指定用途，请试听确认。':kind==='video'?'已添加视频，请在参数栏确认源范围或使用整段。':'已添加图片。');
  }
- function adopt(value){config=clone(value);config.sequence??=[];config.overlays??=[];config.permissions??={background:{asset:config.background||'',mode:'ask'},openingBackground:{asset:config.openingBackground||'',mode:'ask'}};readyRanges=new Set(config.sequence.map(r=>r.itemId));episode={name:config.name+' 新一期',directory:'',voices:[]};selected={type:'settings'};undo=[];redo=[];baseline=key();checked=null;render();}
+ function adopt(value){stopPlayback();$('cfg-audition').pause();config=clone(value);config.sequence??=[];config.overlays??=[];config.permissions??={background:{asset:config.background||'',mode:'ask'},openingBackground:{asset:config.openingBackground||'',mode:'ask'}};readyRanges=new Set(config.sequence.map(r=>r.itemId));episode={name:config.name+' 新一期',directory:'',voices:[]};selected={type:'settings'};undo=[];redo=[];baseline=key();episodeBaseline=episodeKey();checked=null;render();}
  function render(){
   $('cfg-name').value=config.name;$('cfg-dirty').textContent=config.revision?(key()===baseline?'已保存':'有未保存修改'):'尚未保存';
   $('cfg-undo').disabled=!undo.length;$('cfg-redo').disabled=!redo.length;
@@ -137,7 +142,7 @@
   if($('cfg-fill-gap'))$('cfg-fill-gap').onclick=()=>{purpose('fill');page.classList.add('show-assets');msg('选择一张图片，添加后自动填满尾部缺口。');};
   const ruler=$('cfg-lanes').querySelector('.cfg-ruler');if(ruler){ruler.title='点击秒尺预览对应位置';ruler.style.cursor='crosshair';ruler.onclick=event=>{const time=Math.max(0,Math.min(extent,(event.clientX-ruler.getBoundingClientRect().left)/scale));scrub(time,layout);};}
  }
- function reorder(type,id,before){const list=type==='main'?config.sequence:type==='voice'?episode.voices:config.overlays;const at=type==='voice'?Number(id):list.findIndex(v=>(type==='main'?v.itemId:v.slotId)===id);if(at<0||before===id||type==='main'&&list[at]?.timing==='remainder')return;change(()=>{const item=list.splice(at,1)[0];let index=before===undefined?list.length:type==='voice'?Math.min(Number(before),list.length):list.findIndex(v=>(type==='main'?v.itemId:v.slotId)===before);if(index<0)index=list.length;if(type==='main'){const fill=list.findIndex(v=>v.timing==='remainder');if(fill>=0)index=Math.min(index,fill);}list.splice(index,0,item);if(type==='voice'){list.forEach((v,i)=>{if(i)v.opening=false;});selected={type,id:index};}});}
+ function reorder(type,id,before){const list=type==='main'?config.sequence:type==='voice'?episode.voices:config.overlays;const at=type==='voice'?Number(id):list.findIndex(v=>(type==='main'?v.itemId:v.slotId)===id);if(!Number.isInteger(at)||at<0||at>=list.length||before===id||type==='main'&&list[at]?.timing==='remainder')return;change(()=>{const item=list.splice(at,1)[0];let index=before===undefined?list.length:type==='voice'?Math.min(Number(before)-(at<Number(before)?1:0),list.length):list.findIndex(v=>(type==='main'?v.itemId:v.slotId)===before);if(!Number.isInteger(index)||index<0)index=list.length;if(type==='main'){const fill=list.findIndex(v=>v.timing==='remainder');if(fill>=0)index=Math.min(index,fill);}list.splice(index,0,item);if(type==='voice'){list.forEach((v,i)=>{if(i)v.opening=false;});selected={type,id:index};}});}
  function renderPreview(){
   let id=config.visualMode==='sequence'?config.sequence[0]?.background:config.background;if(selected.type==='main')id=row(selected.id)?.background;
   const m=info(id),preview=$('cfg-preview');preview.style.aspectRatio=config.width+'/'+config.height;
@@ -153,14 +158,14 @@
  function stopPlayback(){if(playTimer)clearInterval(playTimer);playTimer=null;for(const p of playing)p.pause();playing=[];const v=$('cfg-preview').querySelector('video');if(v)v.pause();}
  const request=()=>({config:clone(config),voices:clone(episode.voices),name:episode.name||config.name+' 新一期',episodeDirectory:episode.directory});
  async function check(){if(config.sequence.some(r=>info(r.background)?.kind==='video'&&!readyRanges.has(r.itemId)))throw Error('请先确认每段视频的源起点和使用时长。');if(!episode.voices.length)throw Error('请把音频添加到配音轨道，试听确认用途。');checked=await api('/api/roughcut/column-check',request());render();msg(checked.state==='ready'?'安排可生成，共 '+seconds(checked.arrangement.durationUs/1e6)+' 秒。':checked.issues.map(v=>v.message).join('；'));return checked;}
- async function run(action){if(busy)return;busy=true;page.classList.add('busy');const regions=page.querySelectorAll('.cfg-body,.cfg-header,.cfg-timeline');regions.forEach(v=>v.inert=true);try{await action();}catch(error){msg(error.message);}finally{busy=false;page.classList.remove('busy');regions.forEach(v=>v.inert=false);}}
+ async function run(action){if(busy)return;busy=true;page.classList.add('busy');const regions=[...page.querySelectorAll('.cfg-body,.cfg-header,.cfg-timeline'),document.querySelector('.app-nav'),$('settings-button')].filter(Boolean),inert=regions.map(v=>v.inert);regions.forEach(v=>v.inert=true);try{await action();}catch(error){msg(error.message);}finally{busy=false;page.classList.remove('busy');regions.forEach((v,i)=>v.inert=inert[i]);}}
  $('cfg-check').onclick=()=>run(check);
  $('cfg-save').onclick=()=>run(async()=>{if(config.sequence.some(r=>info(r.background)?.kind==='video'&&!readyRanges.has(r.itemId)))throw Error('保存前请确认视频源范围，避免下一期复用未确认的片段。');const saved=await api('/api/roughcut/column-save',clone(config));config=saved;baseline=key();await refresh();render();msg('配置已保存，本期配音与作品目录仍保留在当前工作区。');});
- $('cfg-build').onclick=()=>run(async()=>{if((await check()).state!=='ready')return;const payload={...request(),requestId:uid()};if(editor.snapshot().scenes.length)await api('/api/roughcut/save',editor.snapshot());const project=await api('/api/roughcut/column-build',payload);const result=await api('/api/roughcut/export',project);await editor.openGeneratedProject(project);close();$('cut-directory').value=config.draftDirectory||$('cut-directory').value;$('cut-status').textContent='已生成独立剪映草稿：'+(result.path||result.directory||JSON.stringify(result));});
+ $('cfg-build').onclick=()=>run(async()=>{if((await check()).state!=='ready')return;const payload={...request(),requestId:uid()};if(editor.snapshot().scenes.length)await api('/api/roughcut/save',editor.snapshot());const project=await api('/api/roughcut/column-build',payload);const result=await api('/api/roughcut/export',project);episodeBaseline=episodeKey();await editor.openGeneratedProject(project);close();$('cut-directory').value=config.draftDirectory||$('cut-directory').value;$('cut-status').textContent='已生成独立剪映草稿：'+(result.path||result.directory||JSON.stringify(result));});
  $('cfg-name').onchange=()=>change(()=>config.name=$('cfg-name').value);
- $('cfg-new').onclick=()=>{if(key()!==baseline&&!confirm('当前配置尚未保存，仍要新建吗？'))return;adopt(blank());};
- $('cfg-copy').onclick=()=>{config={...clone(config),id:uid(),name:config.name+' 副本'};delete config.revision;baseline='';render();};
- $('cfg-open').onchange=()=>{const p=presets.find(v=>v.id===$('cfg-open').value);if(p){if(key()!==baseline&&!confirm('当前配置尚未保存，仍要打开其他配置吗？'))return;adopt(p);}};
+ $('cfg-new').onclick=()=>{if(hasUnsavedWork()&&!confirm('当前配置或本期安排尚未完成，仍要新建吗？'))return;adopt(blank());};
+ $('cfg-copy').onclick=()=>change(()=>{config={...clone(config),id:uid(),name:config.name+' 副本'};delete config.revision;});
+ $('cfg-open').onchange=()=>{const p=presets.find(v=>v.id===$('cfg-open').value);if(p){if(hasUnsavedWork()&&!confirm('当前配置或本期安排尚未完成，仍要打开其他配置吗？'))return;adopt(p);}};
  $('cfg-settings').onclick=$('cfg-properties').onclick=()=>select('settings');
  $('cfg-undo').onclick=()=>{if(undo.length){redo.push(state());restore(undo.pop());}};$('cfg-redo').onclick=()=>{if(redo.length){undo.push(state());restore(redo.pop());}};
  $('cfg-visual-tab').onclick=()=>{filter='visual';purpose('main');};$('cfg-audio-tab').onclick=()=>purpose('voice');$('cfg-search').oninput=renderAssets;
@@ -182,7 +187,7 @@
  $('cfg-zoom').oninput=()=>{renderLanes();$('cfg-lanes').style.setProperty('--cfg-card-width',$('cfg-zoom').value*4+'px');};
  function close(){stopPlayback();$('cfg-audition').pause();page.hidden=true;document.body.classList.remove('configuration-active');$('roughcut-page').hidden=false;window.dispatchEvent(new CustomEvent('workshop-page',{detail:'roughcut'}));window.dispatchEvent(new Event('resize'));}
  $('cfg-back').onclick=close;
- window.addEventListener('workshop-page',event=>{if(event.detail!=='roughcut'&&!page.hidden){stopPlayback();$('cfg-audition').pause();page.hidden=true;document.body.classList.remove('configuration-active');}});
- window.configurationWorkspace={async open(){await refresh();switchPage('roughcut');$('roughcut-page').hidden=true;document.body.classList.remove('studio-active');document.body.classList.add('configuration-active');page.hidden=false;render();},snapshot:()=>state()};
- window.addEventListener('beforeunload',event=>{if(!page.hidden&&key()!==baseline){event.preventDefault();event.returnValue='';}});
+ window.addEventListener('workshop-page',event=>{if(!['roughcut','configuration'].includes(event.detail)&&!page.hidden){stopPlayback();$('cfg-audition').pause();page.hidden=true;document.body.classList.remove('configuration-active');}});
+ window.configurationWorkspace={async open(){await refresh();switchPage('roughcut');$('roughcut-page').hidden=true;document.body.classList.remove('studio-active');document.body.classList.add('configuration-active');page.hidden=false;render();window.dispatchEvent(new CustomEvent('workshop-page',{detail:'configuration'}));},snapshot:()=>state()};
+ window.addEventListener('beforeunload',event=>{if(busy||hasUnsavedWork()){event.preventDefault();event.returnValue='';}});
 })();
