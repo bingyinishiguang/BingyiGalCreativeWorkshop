@@ -623,6 +623,7 @@ def _notify_user(exc: BaseException, log_path: str | None) -> None:
 
 
 def _run() -> int:
+    app_paths.set_windows_app_id()
     _enable_per_monitor_dpi_awareness()
     try:
         import webview  #type: ignore
@@ -671,7 +672,7 @@ def _run() -> int:
         chrome_api.bind(window)
         window.events.shown += chrome_api.configure_native_window
         window.events.loaded += chrome_api._refresh_webview_layout
-        webview.start()
+        webview.start(icon=str(app_paths.app_icon_path()))
         return 0
 
     _start_server(True)

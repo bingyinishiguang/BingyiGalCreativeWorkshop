@@ -101,7 +101,10 @@ def run_tray(data_dir: Path, icon_path: Path) -> int:
     except ImportError as error:
         raise RuntimeError("托盘需要 PySide6 的 QtWidgets") from error
 
+    import app_paths
+    app_paths.set_windows_app_id()
     app = QApplication(sys.argv[:1])
+    app.setWindowIcon(QIcon(str(icon_path)))
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("冰翼取用精灵 · 托盘")
 

@@ -26,7 +26,9 @@ creator = brand.get("creator", "冰翼逆时光")
 
 wiz = ROOT / "brand-assets" / "inno-wizard.bmp"
 wiz_small = ROOT / "brand-assets" / "inno-wizard-small.bmp"
-ico = ROOT / "brand-assets" / "app.ico"
+ico = ROOT / "ui" / "app.ico"
+if not ico.is_file():
+    ico = ROOT / "brand-assets" / "app.ico"
 
 
 import sys as _sys
@@ -112,6 +114,7 @@ lines = [
     "SolidCompression=yes",
     "WizardStyle=modern",
     "PrivilegesRequired=lowest",
+    "UninstallDisplayIcon={app}\\{#MyAppExeName}",
 ]
 if ico.exists():
     lines.append(f"SetupIconFile={ico}")

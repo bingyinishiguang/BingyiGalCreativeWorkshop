@@ -16,19 +16,19 @@ ROOT = pathlib_root = Path(__file__).resolve().parent.parent
 
 
 def _default_brand_dir() -> Path:
-    """优先使用 BINGYI_BRAND_DIR；未配置时使用项目内的私有素材目录。"""
+    """优先使用 BINGYI_BRAND_DIR；默认使用随源码发布的品牌原图。"""
     env = os.environ.get("BINGYI_BRAND_DIR")
     if env:
         return Path(env)
-    return ROOT / "private-assets" / "brand"
+    return ROOT / "ui" / "assets" / "brand-source"
 
 
 BRAND_DIR = _default_brand_dir()
 UI = ROOT / "ui"
 OUT = ROOT / "brand-assets"
 
-AVATAR_SRC = BRAND_DIR / "BingyiAvatar_冰翼形象" / "我的女生头像.png"
-LOGO_SRC = BRAND_DIR / "Logo_标识" / "冰翼标.png"
+AVATAR_SRC = BRAND_DIR / "avatar.png"
+LOGO_SRC = BRAND_DIR / "logo.png"
 
 SIGN_TEXT = "冰翼逆时光"
 
@@ -213,6 +213,9 @@ def main() -> int:
     build_avatar()
     build_signature()
     build_logo_assets()
+    sys.path.insert(0, str(ROOT))
+    from tools.build_picker_icon import build
+    build(ROOT)
     print("[done] 品牌资产处理完成")
     return 0
 

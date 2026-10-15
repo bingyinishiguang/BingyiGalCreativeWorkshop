@@ -1077,6 +1077,7 @@ def run_desktop_pet(library_root: Path | None = None) -> int:
             self._apply_topmost(getattr(self, "_window", None), True)
 
     apply_qml_style()
+    app_paths.set_windows_app_id()
     app = QGuiApplication([])
     apply_render_backend(app)
     app.setApplicationName("冰翼取用精灵")

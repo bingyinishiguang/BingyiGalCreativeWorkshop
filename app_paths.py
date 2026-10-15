@@ -64,6 +64,19 @@ def app_name() -> str:
     return str(brand().get("appName") or "冰翼Gal创作工坊")
 
 
+def app_icon_path() -> Path:
+    return resource_root() / "ui" / "app.ico"
+
+
+def set_windows_app_id() -> None:
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('BingyiGalCreativeWorkshop')
+        except (OSError, AttributeError):
+            pass
+
+
 def default_data_dir() -> Path:
     if not is_frozen():
         return project_root() / "工作数据"

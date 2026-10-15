@@ -60,6 +60,7 @@ htmlcov/
 !ui/**/*.webp
 !examples/**/*.png
 !examples/**/*.webp
+!docs/screenshots/*.png
 
 #Development caches and temporary files
 /node_modules/

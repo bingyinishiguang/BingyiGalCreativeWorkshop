@@ -40,7 +40,7 @@ for production_package in ("pyJianYingDraft", "pymediainfo"):
     binaries += production_binaries
     hiddenimports += production_hiddenimports
 
-icon = "brand-assets/app.ico" if os.path.isfile("brand-assets/app.ico") else None
+icon = "ui/app.ico"
 
 a = Analysis(
     ["app_launcher.py"],
@@ -131,7 +131,7 @@ exe_pet = EXE(
     strip=False,
     upx=False,
     console=False,
-    icon="ui/picker-icon.ico",
+    icon=icon,
     **CONTENTS_DIR,
 )
 coll = COLLECT(

@@ -72,6 +72,11 @@ class FloatingPicker:
         self._decode_worker.start()
 
         self.root.title("冰翼立绘取用窗")
+        app_paths.set_windows_app_id()
+        try:
+            self.root.iconbitmap(default=str(app_paths.app_icon_path()))
+        except tk.TclError:
+            pass
         self.root.configure(bg=BACKGROUND)
         self.root.attributes("-topmost", True)
         self.root.minsize(330, 74)
