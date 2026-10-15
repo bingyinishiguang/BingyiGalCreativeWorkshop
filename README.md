@@ -21,7 +21,7 @@ py -3 -m venv .venv
 
 MP4 预览与部分音视频处理需要可从 PATH 调用的 FFmpeg / FFprobe。思源字体为可选；未安装时剧情使用 Windows 中文字体。配音与 AI 服务均可选，模型不会自动下载。
 
-源码版默认将数据保存在项目的 `工作数据` 中；桌面安装版使用 `%APPDATA%\BingyiGalCreativeWorkshop`。密钥与工作数据不应提交到公开仓库。
+源码版默认将数据保存在项目的 `工作数据` 中；桌面安装版使用 `%APPDATA%\BingyiGalCreativeWorkshop`。密钥与工作数据不提交到公开仓库。
 
 使用说明：[剧情生成器](文档/Galgame剧情生成器.md)、[字幕助手](文档/AI字幕助手.md)、[素材配音与人物](文档/素材配音与人物工作流.md)、[剪映草稿工作流](docs/剪映草稿工作流.md)、[素材包格式](文档/素材包格式.md)。
 
