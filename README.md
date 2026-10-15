@@ -33,7 +33,7 @@ py -3 -m venv .venv
 .\启动冰翼Gal创作工坊.bat
 ```
 
-MP4 预览等音视频功能需要 FFmpeg / FFprobe。TTS 运行组件和音色包独立提供；游戏素材与其他模型需自行准备。源码版数据默认保存在 `工作数据`，安装版保存在 `%APPDATA%\BingyiGalCreativeWorkshop`。
+MP4 预览等音视频功能需要 FFmpeg / FFprobe。TTS 运行组件和音色包独立提供；游戏素材与其他模型需自行准备。源码版数据默认保存在 `工作数据`，安装版保存在 `%APPDATA%\BingyiGalCreativeWorkshop`。密钥与工作数据不提交到公开仓库。
 
 使用说明：[剧情](文档/Galgame剧情生成器.md) · [字幕助手](文档/AI字幕助手.md) · [素材与配音](文档/素材配音与人物工作流.md) · [剪映草稿](docs/剪映草稿工作流.md) · [素材包](文档/素材包格式.md)
 
